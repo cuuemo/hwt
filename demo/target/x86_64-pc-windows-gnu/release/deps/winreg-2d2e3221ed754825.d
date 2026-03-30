@@ -1,0 +1,13 @@
+/root/hwt/demo/target/x86_64-pc-windows-gnu/release/deps/winreg-2d2e3221ed754825.d: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/common.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/enums.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key_metadata.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_value.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/types.rs
+
+/root/hwt/demo/target/x86_64-pc-windows-gnu/release/deps/libwinreg-2d2e3221ed754825.rlib: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/common.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/enums.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key_metadata.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_value.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/types.rs
+
+/root/hwt/demo/target/x86_64-pc-windows-gnu/release/deps/libwinreg-2d2e3221ed754825.rmeta: /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/lib.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/common.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/enums.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key_metadata.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_value.rs /root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/types.rs
+
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/lib.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/common.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/enums.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_key_metadata.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/reg_value.rs:
+/root/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/winreg-0.55.0/src/types.rs:

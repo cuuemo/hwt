@@ -1,0 +1,28 @@
+[package]
+name = "hwt-demo"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4"
+env_logger = "0.11"
+chrono = "0.4"
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.55"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.58"
+features = [
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Foundation",
+    "Win32_Security",
+    "Win32_System_Console",
+    "Win32_System_Threading",
+]
+
+[profile.release]
+lto = true
+strip = true
+opt-level = "z"
+panic = "abort"

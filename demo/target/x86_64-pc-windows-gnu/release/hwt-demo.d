@@ -1,0 +1,1 @@
+/root/hwt/demo/target/x86_64-pc-windows-gnu/release/hwt-demo.exe: /root/hwt/demo/build.rs /root/hwt/demo/src/cleanup.rs /root/hwt/demo/src/hwid.rs /root/hwt/demo/src/main.rs /root/hwt/demo/src/registry.rs

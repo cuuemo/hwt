@@ -1,0 +1,59 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api import auth, verify, admin
+from app.database import engine, Base, SessionLocal
+from app.crypto import CryptoManager
+from app.config import RSA_KEY_DIR, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWORD
+from app.models import User, UserRole, UserStatus
+from app.auth import hash_password
+
+# 创建所有表
+Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="HWT 网维系统云端", version="1.0.0")
+
+# CORS (允许前端访问)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # 生产环境改为具体域名
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# 初始化加密管理器 (全局单例)
+crypto = CryptoManager(RSA_KEY_DIR)
+
+# 挂载路由
+app.include_router(auth.router, prefix="/api/auth", tags=["认证"])
+app.include_router(verify.router, prefix="/api/verify", tags=["验证"])
+app.include_router(admin.router, prefix="/api/admin", tags=["管理"])
+
+
+@app.on_event("startup")
+async def init_admin():
+    """启动事件: 确保至少有一个 admin 用户, 没有则创建默认管理员."""
+    db = SessionLocal()
+    try:
+        admin_user = db.query(User).filter(User.role == UserRole.admin).first()
+        if admin_user is None:
+            admin_user = User(
+                username=DEFAULT_ADMIN_USERNAME,
+                password_hash=hash_password(DEFAULT_ADMIN_PASSWORD),
+                role=UserRole.admin,
+                status=UserStatus.active,
+            )
+            db.add(admin_user)
+            db.commit()
+            print(f"[INIT] 已创建默认管理员用户: {DEFAULT_ADMIN_USERNAME}")
+        else:
+            print(f"[INIT] 已存在管理员用户: {admin_user.username}")
+    finally:
+        db.close()
+
+
+@app.get("/")
+def root():
+    """健康检查."""
+    return {"status": "ok", "service": "HWT 网维系统云端"}
