@@ -4,7 +4,7 @@ use hwt_protocol::crypto::{aes_decrypt, aes_encrypt, generate_aes_key, public_ke
 use serde::{Deserialize, Serialize};
 use std::io::{Error, ErrorKind, Result};
 
-const DEFAULT_CLOUD_BASE_URL: &str = "https://hwt-cloud.example.com";
+const DEFAULT_CLOUD_BASE_URL: &str = "http://43.165.169.50:10000";
 
 /// Response from cloud verify endpoint after decryption.
 #[derive(Debug, Clone, Deserialize, Serialize)]

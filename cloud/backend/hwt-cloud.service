@@ -1,0 +1,16 @@
+[Unit]
+Description=HWT 网维系统云端服务
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/root/hwt/cloud/backend
+ExecStart=uvicorn app.main:app --host 0.0.0.0 --port 10000 --workers 2
+Restart=always
+RestartSec=5
+Environment=JWT_SECRET=请替换为随机字符串
+Environment=DEFAULT_ADMIN_PASSWORD=请替换为强密码
+
+[Install]
+WantedBy=multi-user.target

@@ -16,6 +16,7 @@ mod win {
         ServiceInfo, ServiceStartType, ServiceState, ServiceStatus, ServiceType,
     };
     use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
+    use windows_service::define_windows_service;
     use windows_service::service_dispatcher;
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
@@ -115,13 +116,13 @@ mod win {
         }
     }
 
+    define_windows_service!(ffi_service_main, service_main);
+
     /// Dispatch to the Windows Service Control Manager.
     pub fn dispatch() {
         service_dispatcher::start(SERVICE_NAME, ffi_service_main)
             .expect("Failed to dispatch service main");
     }
-
-    define_windows_service!(ffi_service_main, service_main);
 
     fn service_main(_args: Vec<OsString>) {
         let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>();
@@ -154,6 +155,11 @@ mod win {
         // Build tokio runtime and run main loop
         let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
         rt.block_on(async {
+            // Wrap in Arc so we can check from inside the loop without moving
+            use std::sync::Arc;
+            use std::sync::Mutex;
+            let shutdown_rx = Arc::new(Mutex::new(Some(shutdown_rx)));
+
             loop {
                 match crate::protocol::run_cleanup_cycle().await {
                     Ok(_) => log::info!("Cleanup cycle completed successfully"),
@@ -161,11 +167,16 @@ mod win {
                 }
 
                 // Wait 60 seconds or until stop signal
+                let rx_clone = shutdown_rx.clone();
                 tokio::select! {
                     _ = tokio::time::sleep(Duration::from_secs(60)) => {
                         continue;
                     }
-                    _ = tokio::task::spawn_blocking(move || { let _ = shutdown_rx.recv(); }) => {
+                    _ = tokio::task::spawn_blocking(move || {
+                        if let Some(rx) = rx_clone.lock().unwrap().take() {
+                            let _ = rx.recv();
+                        }
+                    }) => {
                         log::info!("Received stop signal");
                         break;
                     }
