@@ -6,13 +6,13 @@
 
 ```
 互联网
-└── 云服务器 (Python FastAPI)
-        ↕ HTTPS :10000
+└── 云服务器 (Python FastAPI，端口 10000)
+        ↕ HTTP
 内网
-└── 网维服务器 (hwt-server.exe, egui GUI)
-        ↕ TCP :19800 加密通信
-    ├── 工作站1 (hwt-client.exe, Windows Service)
-    ├── 工作站2 (hwt-client.exe, Windows Service)
+└── 网维服务器 (hwt-server.exe，egui GUI)
+        ↕ TCP :19800 RSA+AES 加密通信
+    ├── 工作站1 (hwt-client.exe，Windows Service)
+    ├── 工作站2 (hwt-client.exe，Windows Service)
     └── 工作站N ...
 ```
 
@@ -22,123 +22,178 @@
 
 ---
 
-## 目录结构
+## 下载 EXE
 
-```
-hwt/
-├── client/          # 客户端 EXE (Rust, Windows Service)
-├── server/          # 网维服务器 (Rust, egui GUI)
-├── protocol/        # 共享通信协议 crate
-├── cloud/
-│   └── backend/     # 云端服务 (Python FastAPI)
-│       ├── app/
-│       ├── start.sh
-│       └── hwt-cloud.service
-└── dist/            # 编译产物输出目录
-    ├── ip/          # 测试版 (连接 43.165.169.50:10000)
-    └── domain/      # 正式版 (连接 cuuemo.cn:10000)
-```
+前往 [Releases](https://github.com/cuuemo/hwt/releases) 下载：
+
+| 文件 | 用途 |
+|------|------|
+| `hwt-server-ip.exe` | 网维服务器（连接测试云端 43.165.169.50:10000）|
+| `hwt-server-domain.exe` | 网维服务器（连接正式云端 cuuemo.cn:10000）|
+| `hwt-client.exe` | 工作站客户端（两个版本通用）|
 
 ---
 
-## 编译
+## 一、云端服务器部署
 
-### 环境要求
+### 方式A：Docker 原生部署（推荐）
 
-- Rust 1.70+
-- `x86_64-pc-windows-gnu` target：`rustup target add x86_64-pc-windows-gnu`
-- MinGW-w64：`apt install gcc-mingw-w64-x86-64`
-
-### 一键编译两份
+**环境要求**：Linux 服务器，已安装 Docker 和 Docker Compose
 
 ```bash
-bash build.sh
+# 1. 克隆项目或上传 cloud/backend/ 目录到服务器
+git clone https://github.com/cuuemo/hwt.git
+cd hwt/cloud/backend
+
+# 2. 修改密码（必须改，否则有安全风险）
+nano docker-compose.yml
+# 修改以下两行：
+#   JWT_SECRET=你的随机密钥（随便打一串字符）
+#   DEFAULT_ADMIN_PASSWORD=你的管理员密码
+
+# 3. 启动
+docker compose up -d
+
+# 4. 查看日志
+docker logs -f hwt-cloud
+
+# 常用命令
+docker compose stop        # 停止
+docker compose restart     # 重启
+docker compose down        # 停止并删除容器（数据保留在 ./data/）
 ```
 
-输出：
-- `dist/ip/hwt-server.exe`     — 连接 43.165.169.50:10000（测试）
-- `dist/ip/hwt-client.exe`     — 客户端（两份相同）
-- `dist/domain/hwt-server.exe` — 连接 cuuemo.cn:10000（正式）
-- `dist/domain/hwt-client.exe` — 客户端（两份相同）
+服务启动后：
+- API 接口：`http://43.165.169.50:10000`
+- Swagger 文档：`http://43.165.169.50:10000/docs`
+- 数据持久化在 `cloud/backend/data/` 目录
 
 ---
 
-## 部署
+### 方式B：宝塔面板 Docker 部署
 
-### 1. 云端服务器
+**前提**：宝塔面板已安装 Docker 管理器插件
+
+#### 步骤 1 — 上传文件
+
+在宝塔文件管理器中，上传 `cloud/backend/` 整个目录到服务器，例如 `/www/hwt/`
+
+#### 步骤 2 — 修改配置
+
+打开 `/www/hwt/docker-compose.yml`，修改环境变量：
+
+```yaml
+environment:
+  - JWT_SECRET=你的随机密钥
+  - DEFAULT_ADMIN_USERNAME=admin
+  - DEFAULT_ADMIN_PASSWORD=你的管理员密码
+```
+
+#### 步骤 3 — 构建并启动
+
+在宝塔面板 **终端** 中执行：
 
 ```bash
-# 上传 cloud/backend/ 到服务器，然后：
+cd /www/hwt
+docker compose up -d --build
+```
+
+#### 步骤 4 — 宝塔防火墙放行端口
+
+**安全** → **系统防火墙** → 添加端口规则：
+
+| 端口 | 协议 | 说明 |
+|------|------|------|
+| 10000 | TCP | HWT 云端 API |
+
+#### 步骤 5 — （可选）配置反向代理
+
+在宝塔 **网站** 中添加站点 `cuuemo.cn`，配置反向代理：
+
+- 目标 URL：`http://127.0.0.1:10000`
+- 开启 SSL（Let's Encrypt 免费证书）
+
+配置好后客户端可用 `https://cuuemo.cn` 访问（需重新编译 server 改为 https）。
+
+---
+
+### 方式C：原生 Python 部署（不用 Docker）
+
+```bash
+cd cloud/backend
 pip3 install -r requirements.txt
-
-# 直接启动
 bash start.sh
 
-# 或 systemd 守护进程
+# 或 systemd 守护进程（开机自启）
 cp hwt-cloud.service /etc/systemd/system/
-# 编辑 JWT_SECRET 和 DEFAULT_ADMIN_PASSWORD
-systemctl daemon-reload && systemctl enable --now hwt-cloud
+nano /etc/systemd/system/hwt-cloud.service   # 修改密码
+systemctl daemon-reload
+systemctl enable --now hwt-cloud
 ```
 
-API 文档：`http://43.165.169.50:10000/docs`
+---
 
-默认管理员账号：`admin` / `admin123`（**部署前务必修改**）
+## 二、网维服务器部署（网吧主控机，Windows）
 
-### 2. 网维服务器（网吧收银机/主控机，Windows）
+1. 从 Releases 下载 `hwt-server-ip.exe`（测试）或 `hwt-server-domain.exe`（正式）
+2. **右键 → 以管理员身份运行**
+3. 在 GUI 登录界面输入账号密码，连接云端授权
+4. 授权成功后自动监听局域网 TCP 19800 端口
 
-```
-hwt-server.exe
-```
+---
 
-双击运行，使用管理员账号登录云端，激活后开始监听 TCP 19800。
-
-### 3. 客户端工作站（Windows，以管理员身份运行）
+## 三、工作站客户端部署（Windows，以管理员身份运行）
 
 ```bat
-# 安装为系统服务（开机自启）
+# 安装为系统服务（开机自启，SYSTEM 权限自动清理注册表）
 hwt-client.exe install
 
-# 查看状态
+# 查看服务状态
 hwt-client.exe status
+
+# 前台运行（调试用）
+hwt-client.exe run
 
 # 卸载服务
 hwt-client.exe uninstall
-
-# 前台调试运行
-hwt-client.exe run
 ```
 
-安装后服务名：`HwtCleanupService`，随系统启动，自动扫描内网找到网维服务器，验证通过后清理 `HKLM\SYSTEM\CurrentControlSet\Enum\DISPLAY` 注册表。
+安装后服务名：`HwtCleanupService`
+
+工作流程：开机 → 扫描内网找到网维服务器 → 加密握手授权 → 清理 `HKLM\SYSTEM\CurrentControlSet\Enum\DISPLAY` 注册表 → 每 60 秒心跳一次
 
 ---
 
-## 云端 API 概览
+## 四、迁移（IP → 域名）
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET  | `/` | 健康检查 |
-| POST | `/api/auth/login` | 管理员登录 |
-| GET  | `/api/auth/public-key` | 获取 RSA 公钥 |
-| POST | `/api/verify/handshake` | 建立 AES 会话 |
-| POST | `/api/verify` | 加密验证账号+机器码 |
-| GET  | `/api/admin/users` | 用户列表 |
-| POST | `/api/admin/users` | 创建用户 |
-
-完整文档见 `/docs`（Swagger UI）。
-
----
-
-## 迁移（IP → 域名）
-
-测试通过后切换到正式版：
+测试通过后：
 
 1. 将 `dist/domain/hwt-server.exe` 替换到网维服务器
-2. 云端代码无需改动，直接在新服务器部署即可
+2. 云端服务无需改动，在新服务器按上面步骤重新部署即可
 
 ---
 
-## 注意事项
+## 五、重新编译
+
+```bash
+# 一次编译 IP 版和域名版两份
+bash build.sh
+
+# 产物在：
+# dist/ip/hwt-server-ip.exe   + hwt-client.exe
+# dist/domain/hwt-server-domain.exe + hwt-client.exe
+```
+
+**编译环境要求**：
+- Rust 1.70+
+- `rustup target add x86_64-pc-windows-gnu`
+- `apt install gcc-mingw-w64-x86-64`
+
+---
+
+## 六、注意事项
 
 - 客户端需以 **SYSTEM 权限**运行才能修改注册表（安装为服务后自动满足）
 - 网维服务器需以**管理员**身份运行
-- 云端 `JWT_SECRET` 请设置为随机强密码，勿使用默认值
+- 云端 `JWT_SECRET` 和 `DEFAULT_ADMIN_PASSWORD` 务必修改，勿使用默认值
+- 默认管理员账号：`admin` / `admin123`
