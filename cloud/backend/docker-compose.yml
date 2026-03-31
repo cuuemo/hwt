@@ -1,0 +1,14 @@
+services:
+  hwt-cloud:
+    build: .
+    container_name: hwt-cloud
+    ports:
+      - "10000:10000"
+    volumes:
+      - ./data/db:/app/hwt.db:rw
+      - ./data/keys:/app/keys:rw
+    environment:
+      - JWT_SECRET=请替换为随机强密码
+      - DEFAULT_ADMIN_USERNAME=admin
+      - DEFAULT_ADMIN_PASSWORD=请替换为强密码
+    restart: unless-stopped
