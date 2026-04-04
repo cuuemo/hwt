@@ -5,10 +5,9 @@ services:
     ports:
       - "10000:10000"
     volumes:
-      - ./data/db:/app/hwt.db:rw
       - ./data/keys:/app/keys:rw
     environment:
-      - JWT_SECRET=请替换为随机强密码
+      - JWT_SECRET=bcfbfe417632f65d88ee2e74c983e3d7a34612c1cf5e9ca9a4d3626c166ad11e
       - DEFAULT_ADMIN_USERNAME=admin
-      - DEFAULT_ADMIN_PASSWORD=请替换为强密码
+      - DEFAULT_ADMIN_PASSWORD=S0Z72SyBtOriJVNr
     restart: unless-stopped

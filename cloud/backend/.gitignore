@@ -1,0 +1,6 @@
+credentials.txt
+data/
+*.db
+keys/
+__pycache__/
+*.pyc
