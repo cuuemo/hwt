@@ -40,7 +40,16 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "hwt-server",
         options,
-        Box::new(move |_cc| {
+        Box::new(move |cc| {
+            // Load Chinese font
+            let mut fonts = egui::FontDefinitions::default();
+            fonts.font_data.insert(
+                "noto_sans_sc".to_owned(),
+                egui::FontData::from_static(include_bytes!("../assets/NotoSansSC-Regular.otf")),
+            );
+            fonts.families.entry(egui::FontFamily::Proportional).or_default().insert(0, "noto_sans_sc".to_owned());
+            fonts.families.entry(egui::FontFamily::Monospace).or_default().push("noto_sans_sc".to_owned());
+            cc.egui_ctx.set_fonts(fonts);
             Ok(Box::new(App::new(authorized, clients, cmd_tx, result_rx)))
         }),
     )

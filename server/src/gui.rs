@@ -22,7 +22,7 @@ pub enum AuthCommand {
 /// Results sent from background tokio runtime back to the GUI.
 pub enum AuthResult {
     LoginSuccess {
-        license_type: String,
+        license_type: Option<String>,
         expire_at: Option<String>,
         message: String,
     },
@@ -36,7 +36,7 @@ pub enum AuthResult {
         error: String,
     },
     ReVerifySuccess {
-        license_type: String,
+        license_type: Option<String>,
         expire_at: Option<String>,
     },
     ReVerifyFailed {
@@ -70,7 +70,7 @@ pub struct App {
 
     // Authorization info
     authorized: Arc<AtomicBool>,
-    license_type: String,
+    license_type: Option<String>,
     expire_at: Option<String>,
     machine_code: String,
     last_verify_time: Option<String>,
@@ -113,7 +113,7 @@ impl App {
             reg_message: None,
             registering: false,
             authorized,
-            license_type: String::new(),
+            license_type: None,
             expire_at: None,
             machine_code,
             last_verify_time: None,
@@ -345,7 +345,7 @@ impl App {
                 ui.end_row();
 
                 ui.label("License Type:");
-                ui.label(&self.license_type);
+                ui.label(self.license_type.as_deref().unwrap_or("未授权"));
                 ui.end_row();
 
                 ui.label("Expires:");

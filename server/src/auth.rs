@@ -4,13 +4,18 @@ use hwt_protocol::crypto::{aes_decrypt, aes_encrypt, generate_aes_key, public_ke
 use serde::{Deserialize, Serialize};
 use std::io::{Error, ErrorKind, Result};
 
-const DEFAULT_CLOUD_BASE_URL: &str = "http://43.165.169.50:10000";
+const DEFAULT_CLOUD_BASE_URL: &str = {
+    match option_env!("CLOUD_BASE_URL") {
+        Some(url) => url,
+        None => "http://43.165.169.50:10000",
+    }
+};
 
 /// Response from cloud verify endpoint after decryption.
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct VerifyResponse {
     pub authorized: bool,
-    pub license_type: String,
+    pub license_type: Option<String>,
     pub expire_at: Option<String>,
     pub message: String,
 }
