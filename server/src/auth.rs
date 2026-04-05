@@ -8,7 +8,7 @@ use std::io::{Error, ErrorKind, Result};
 
 const DEFAULT_CLOUD_BASE_URL: &str = match option_env!("CLOUD_BASE_URL") {
     Some(url) => url,
-    None => "http://43.165.169.50:10000",
+    None => "http://159.195.77.25:10000",
 };
 
 /// Response from cloud verify endpoint after decryption.

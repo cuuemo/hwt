@@ -15,9 +15,9 @@ fi
 mkdir -p keys
 
 echo "[INFO] 启动 HWT 云端服务，监听 0.0.0.0:10000"
-echo "[INFO] IP 访问:     http://43.165.169.50:10000"
+echo "[INFO] IP 访问:     http://159.195.77.25:10000"
 echo "[INFO] 域名访问:    http://cuuemo.cn:10000"
-echo "[INFO] 管理后台:    http://cuuemo.cn:10000/docs"
+echo "[INFO] 管理后台:    http://159.195.77.25:10000/docs"
 
 exec uvicorn app.main:app \
     --host 0.0.0.0 \

@@ -8,8 +8,8 @@ echo "=== 编译 client (公用) ==="
 cargo build --release --target $TARGET -p hwt-client
 
 echo ""
-echo "=== 编译 server [IP版] — http://43.165.169.50:10000 ==="
-CLOUD_BASE_URL=http://43.165.169.50:10000 cargo build --release --target $TARGET -p hwt-server
+echo "=== 编译 server [IP版] — http://159.195.77.25:10000 ==="
+CLOUD_BASE_URL=http://159.195.77.25:10000 cargo build --release --target $TARGET -p hwt-server
 mkdir -p dist/ip
 cp $RELEASE/hwt-server.exe dist/ip/hwt-server.exe
 cp $RELEASE/hwt-server.exe dist/ip/hwt-server-ip.exe

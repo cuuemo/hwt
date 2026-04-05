@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
+from sqlalchemy.exc import IntegrityError, OperationalError
 
 from app.api import auth, verify, admin
 from app.database import engine, Base, SessionLocal
@@ -11,8 +12,19 @@ from app.config import RSA_KEY_DIR, DEFAULT_ADMIN_USERNAME, DEFAULT_ADMIN_PASSWO
 from app.models import User, UserRole, UserStatus
 from app.auth import hash_password
 
+def ensure_schema():
+    """Create tables once, tolerating startup races between multiple workers."""
+    try:
+        Base.metadata.create_all(bind=engine)
+    except OperationalError as exc:
+        if "already exists" in str(exc).lower():
+            print("[INIT] 数据表已由其他 worker 创建")
+        else:
+            raise
+
+
 # 创建所有表
-Base.metadata.create_all(bind=engine)
+ensure_schema()
 
 app = FastAPI(title="HWT 网维系统云端", version="1.0.0")
 
@@ -48,8 +60,18 @@ async def init_admin():
                 status=UserStatus.active,
             )
             db.add(admin_user)
-            db.commit()
-            print(f"[INIT] 已创建默认管理员用户: {DEFAULT_ADMIN_USERNAME}")
+            try:
+                db.commit()
+                print(f"[INIT] 已创建默认管理员用户: {DEFAULT_ADMIN_USERNAME}")
+            except IntegrityError:
+                # Multiple workers can race during startup. If another worker
+                # created the admin first, treat it as success.
+                db.rollback()
+                admin_user = db.query(User).filter(User.role == UserRole.admin).first()
+                if admin_user is not None:
+                    print(f"[INIT] 管理员已由其他 worker 创建: {admin_user.username}")
+                else:
+                    raise
         else:
             print(f"[INIT] 已存在管理员用户: {admin_user.username}")
     finally:
