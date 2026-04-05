@@ -86,7 +86,10 @@ async fn try_cleanup_cycle() -> Result<()> {
     }
 
     // Step 6: Heartbeat loop
-    log::info!("Entering heartbeat loop (interval: {:?})", HEARTBEAT_INTERVAL);
+    log::info!(
+        "Entering heartbeat loop (interval: {:?})",
+        HEARTBEAT_INTERVAL
+    );
     heartbeat_loop(&mut stream, &session_key).await?;
 
     Ok(())
@@ -123,10 +126,8 @@ async fn perform_handshake(stream: &mut TcpStream) -> Result<[u8; 32]> {
 
     // 3e: RSA-encrypt the session key and send KeyExchange
     let encrypted_key = rsa_encrypt(&server_pubkey, &session_key)?;
-    let encoded_key = base64::Engine::encode(
-        &base64::engine::general_purpose::STANDARD,
-        &encrypted_key,
-    );
+    let encoded_key =
+        base64::Engine::encode(&base64::engine::general_purpose::STANDARD, &encrypted_key);
 
     let key_exchange_msg = Message::KeyExchange {
         encrypted_key: encoded_key,

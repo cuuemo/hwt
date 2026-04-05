@@ -21,7 +21,21 @@ fn main() {
         _ => {
             #[cfg(windows)]
             {
-                service::dispatch();
+                match service::dispatch() {
+                    Ok(()) => {}
+                    Err(windows_service::Error::Winapi(err))
+                        if err.raw_os_error() == Some(1063) =>
+                    {
+                        log::warn!(
+                            "Service Control Manager unavailable, falling back to foreground mode"
+                        );
+                        run_foreground();
+                    }
+                    Err(e) => {
+                        log::error!("Failed to start service mode: {}", e);
+                        std::process::exit(1);
+                    }
+                }
             }
             #[cfg(not(windows))]
             {

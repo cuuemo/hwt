@@ -11,12 +11,12 @@ mod win {
     use std::ffi::OsString;
     use std::sync::mpsc;
     use std::time::Duration;
+    use windows_service::define_windows_service;
     use windows_service::service::{
         ServiceAccess, ServiceControl, ServiceControlAccept, ServiceErrorControl, ServiceExitCode,
         ServiceInfo, ServiceStartType, ServiceState, ServiceStatus, ServiceType,
     };
     use windows_service::service_control_handler::{self, ServiceControlHandlerResult};
-    use windows_service::define_windows_service;
     use windows_service::service_dispatcher;
     use windows_service::service_manager::{ServiceManager, ServiceManagerAccess};
 
@@ -42,7 +42,10 @@ mod win {
         };
 
         let service = manager
-            .create_service(&service_info, ServiceAccess::START | ServiceAccess::QUERY_STATUS)
+            .create_service(
+                &service_info,
+                ServiceAccess::START | ServiceAccess::QUERY_STATUS,
+            )
             .expect("Failed to create service");
 
         log::info!("Service '{}' created successfully", SERVICE_NAME);
@@ -56,9 +59,8 @@ mod win {
 
     /// Stop and delete the Windows service.
     pub fn uninstall() {
-        let manager =
-            ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-                .expect("Failed to open Service Control Manager");
+        let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+            .expect("Failed to open Service Control Manager");
 
         let service = manager
             .open_service(
@@ -90,9 +92,8 @@ mod win {
 
     /// Query and print the service status.
     pub fn status() {
-        let manager =
-            ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
-                .expect("Failed to open Service Control Manager");
+        let manager = ServiceManager::local_computer(None::<&str>, ServiceManagerAccess::CONNECT)
+            .expect("Failed to open Service Control Manager");
 
         match manager.open_service(SERVICE_NAME, ServiceAccess::QUERY_STATUS) {
             Ok(service) => {
@@ -119,25 +120,23 @@ mod win {
     define_windows_service!(ffi_service_main, service_main);
 
     /// Dispatch to the Windows Service Control Manager.
-    pub fn dispatch() {
+    pub fn dispatch() -> windows_service::Result<()> {
         service_dispatcher::start(SERVICE_NAME, ffi_service_main)
-            .expect("Failed to dispatch service main");
     }
 
     fn service_main(_args: Vec<OsString>) {
         let (shutdown_tx, shutdown_rx) = mpsc::channel::<()>();
 
-        let status_handle = service_control_handler::register(SERVICE_NAME, move |control| {
-            match control {
+        let status_handle =
+            service_control_handler::register(SERVICE_NAME, move |control| match control {
                 ServiceControl::Stop | ServiceControl::Shutdown => {
                     let _ = shutdown_tx.send(());
                     ServiceControlHandlerResult::NoError
                 }
                 ServiceControl::Interrogate => ServiceControlHandlerResult::NoError,
                 _ => ServiceControlHandlerResult::NotImplemented,
-            }
-        })
-        .expect("Failed to register service control handler");
+            })
+            .expect("Failed to register service control handler");
 
         // Report Running
         let _ = status_handle.set_service_status(ServiceStatus {
@@ -234,6 +233,6 @@ pub fn status() {
 }
 
 #[cfg(windows)]
-pub fn dispatch() {
-    win::dispatch();
+pub fn dispatch() -> windows_service::Result<()> {
+    win::dispatch()
 }

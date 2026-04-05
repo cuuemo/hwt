@@ -1,14 +1,14 @@
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
-use hwt_protocol::crypto::{aes_decrypt, aes_encrypt, generate_aes_key, public_key_from_pem, rsa_encrypt};
+use hwt_protocol::crypto::{
+    aes_decrypt, aes_encrypt, generate_aes_key, public_key_from_pem, rsa_encrypt,
+};
 use serde::{Deserialize, Serialize};
 use std::io::{Error, ErrorKind, Result};
 
-const DEFAULT_CLOUD_BASE_URL: &str = {
-    match option_env!("CLOUD_BASE_URL") {
-        Some(url) => url,
-        None => "http://43.165.169.50:10000",
-    }
+const DEFAULT_CLOUD_BASE_URL: &str = match option_env!("CLOUD_BASE_URL") {
+    Some(url) => url,
+    None => "http://43.165.169.50:10000",
 };
 
 /// Response from cloud verify endpoint after decryption.
@@ -27,15 +27,25 @@ pub async fn cloud_register(
     username: &str,
     password: &str,
 ) -> Result<String> {
-    let base_url = if base_url.is_empty() { DEFAULT_CLOUD_BASE_URL } else { base_url };
+    let base_url = if base_url.is_empty() {
+        DEFAULT_CLOUD_BASE_URL
+    } else {
+        base_url
+    };
 
     // Get public key for RSA encryption
     let url = format!("{}/api/auth/public-key", base_url);
-    let resp = client.get(&url).send().await
+    let resp = client
+        .get(&url)
+        .send()
+        .await
         .map_err(|e| Error::new(ErrorKind::Other, format!("GET public-key failed: {e}")))?;
-    let body: serde_json::Value = resp.json().await
+    let body: serde_json::Value = resp
+        .json()
+        .await
         .map_err(|e| Error::new(ErrorKind::Other, format!("parse public-key JSON: {e}")))?;
-    let pem_str = body["public_key"].as_str()
+    let pem_str = body["public_key"]
+        .as_str()
         .ok_or_else(|| Error::new(ErrorKind::InvalidData, "missing public_key field"))?;
 
     let public_key = public_key_from_pem(pem_str)?;
@@ -43,17 +53,27 @@ pub async fn cloud_register(
     let password_encrypted = BASE64.encode(&encrypted);
 
     #[derive(Serialize)]
-    struct RegisterRequest { username: String, password_encrypted: String }
+    struct RegisterRequest {
+        username: String,
+        password_encrypted: String,
+    }
 
-    let resp = client.post(&format!("{}/api/auth/register", base_url))
-        .json(&RegisterRequest { username: username.to_string(), password_encrypted })
-        .send().await
+    let resp = client
+        .post(&format!("{}/api/auth/register", base_url))
+        .json(&RegisterRequest {
+            username: username.to_string(),
+            password_encrypted,
+        })
+        .send()
+        .await
         .map_err(|e| Error::new(ErrorKind::Other, format!("POST register failed: {e}")))?;
 
     if !resp.status().is_success() {
         let body: serde_json::Value = resp.json().await.unwrap_or_default();
-        return Err(Error::new(ErrorKind::Other,
-            body["detail"].as_str().unwrap_or("注册失败").to_string()));
+        return Err(Error::new(
+            ErrorKind::Other,
+            body["detail"].as_str().unwrap_or("注册失败").to_string(),
+        ));
     }
 
     Ok("注册成功，请联系管理员获取授权后登录".to_string())
@@ -231,9 +251,7 @@ pub async fn cloud_verify(
         .decode(
             resp_body["payload"]
                 .as_str()
-                .ok_or_else(|| {
-                    Error::new(ErrorKind::InvalidData, "missing payload in response")
-                })?,
+                .ok_or_else(|| Error::new(ErrorKind::InvalidData, "missing payload in response"))?,
         )
         .map_err(|e| Error::new(ErrorKind::InvalidData, format!("decode payload: {e}")))?;
 
@@ -253,8 +271,12 @@ pub async fn cloud_verify(
 
     let decrypted = aes_decrypt(session_key, &combined)?;
 
-    let verify_resp: VerifyResponse = serde_json::from_slice(&decrypted)
-        .map_err(|e| Error::new(ErrorKind::Other, format!("deserialize verify response: {e}")))?;
+    let verify_resp: VerifyResponse = serde_json::from_slice(&decrypted).map_err(|e| {
+        Error::new(
+            ErrorKind::Other,
+            format!("deserialize verify response: {e}"),
+        )
+    })?;
 
     Ok(verify_resp)
 }

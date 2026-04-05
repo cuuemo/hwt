@@ -22,12 +22,7 @@ fn main() -> Result<(), eframe::Error> {
     let (result_tx, result_rx) = mpsc::channel::<AuthResult>();
 
     // Spawn background tokio runtime in a separate thread
-    gui::spawn_background_runtime(
-        authorized.clone(),
-        clients.clone(),
-        cmd_rx,
-        result_tx,
-    );
+    gui::spawn_background_runtime(authorized.clone(), clients.clone(), cmd_rx, result_tx);
 
     // Run eframe/egui on the main thread
     let options = eframe::NativeOptions {
@@ -47,8 +42,16 @@ fn main() -> Result<(), eframe::Error> {
                 "noto_sans_sc".to_owned(),
                 egui::FontData::from_static(include_bytes!("../assets/NotoSansSC-Regular.otf")),
             );
-            fonts.families.entry(egui::FontFamily::Proportional).or_default().insert(0, "noto_sans_sc".to_owned());
-            fonts.families.entry(egui::FontFamily::Monospace).or_default().push("noto_sans_sc".to_owned());
+            fonts
+                .families
+                .entry(egui::FontFamily::Proportional)
+                .or_default()
+                .insert(0, "noto_sans_sc".to_owned());
+            fonts
+                .families
+                .entry(egui::FontFamily::Monospace)
+                .or_default()
+                .push("noto_sans_sc".to_owned());
             cc.egui_ctx.set_fonts(fonts);
             Ok(Box::new(App::new(authorized, clients, cmd_tx, result_rx)))
         }),

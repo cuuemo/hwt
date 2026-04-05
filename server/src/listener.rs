@@ -49,7 +49,9 @@ pub async fn start_listener(
         let ltx = log_tx.clone();
 
         tokio::spawn(async move {
-            if let Err(e) = handle_client(stream, peer_addr, auth, key, pem, clients_list, ltx.clone()).await {
+            if let Err(e) =
+                handle_client(stream, peer_addr, auth, key, pem, clients_list, ltx.clone()).await
+            {
                 log::error!("Client {} error: {}", peer_addr, e);
                 let _ = ltx.send(format!(
                     "[{}] Client {} disconnected: {}",

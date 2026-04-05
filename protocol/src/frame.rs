@@ -34,11 +34,7 @@ pub async fn write_frame(stream: &mut TcpStream, data: &[u8]) -> Result<()> {
 /// 1. 将 Message 序列化为 JSON
 /// 2. 用 AES-256-GCM 加密 (结果格式: [12 IV][密文][16 TAG])
 /// 3. 以长度前缀帧写入
-pub async fn write_encrypted(
-    stream: &mut TcpStream,
-    key: &[u8; 32],
-    msg: &Message,
-) -> Result<()> {
+pub async fn write_encrypted(stream: &mut TcpStream, key: &[u8; 32], msg: &Message) -> Result<()> {
     let json = serde_json::to_vec(msg)
         .map_err(|e| Error::new(ErrorKind::Other, format!("serialize error: {e}")))?;
     let encrypted = aes_encrypt(key, &json)?;
@@ -91,7 +87,10 @@ mod tests {
         write_encrypted(&mut c, &key, &msg).await.unwrap();
         let received = read_encrypted(&mut s, &key).await.unwrap();
         match received {
-            Message::AuthRequest { client_id, client_mac } => {
+            Message::AuthRequest {
+                client_id,
+                client_mac,
+            } => {
                 assert_eq!(client_id, "test-pc");
                 assert_eq!(client_mac.unwrap(), "aa:bb:cc");
             }
@@ -103,11 +102,26 @@ mod tests {
     async fn test_multiple_encrypted_frames() {
         let (mut c, mut s) = tcp_pair().await;
         let key = generate_aes_key();
-        write_encrypted(&mut c, &key, &Message::Handshake).await.unwrap();
-        write_encrypted(&mut c, &key, &Message::Heartbeat).await.unwrap();
-        write_encrypted(&mut c, &key, &Message::HeartbeatAck).await.unwrap();
-        assert!(matches!(read_encrypted(&mut s, &key).await.unwrap(), Message::Handshake));
-        assert!(matches!(read_encrypted(&mut s, &key).await.unwrap(), Message::Heartbeat));
-        assert!(matches!(read_encrypted(&mut s, &key).await.unwrap(), Message::HeartbeatAck));
+        write_encrypted(&mut c, &key, &Message::Handshake)
+            .await
+            .unwrap();
+        write_encrypted(&mut c, &key, &Message::Heartbeat)
+            .await
+            .unwrap();
+        write_encrypted(&mut c, &key, &Message::HeartbeatAck)
+            .await
+            .unwrap();
+        assert!(matches!(
+            read_encrypted(&mut s, &key).await.unwrap(),
+            Message::Handshake
+        ));
+        assert!(matches!(
+            read_encrypted(&mut s, &key).await.unwrap(),
+            Message::Heartbeat
+        ));
+        assert!(matches!(
+            read_encrypted(&mut s, &key).await.unwrap(),
+            Message::HeartbeatAck
+        ));
     }
 }

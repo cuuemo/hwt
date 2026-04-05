@@ -29,10 +29,7 @@ pub fn clean_display_registry() -> Result<u32> {
     };
 
     // Enumerate all first-level subkeys (monitor model names)
-    let subkey_names: Vec<String> = display_key
-        .enum_keys()
-        .filter_map(|r| r.ok())
-        .collect();
+    let subkey_names: Vec<String> = display_key.enum_keys().filter_map(|r| r.ok()).collect();
 
     let total = subkey_names.len() as u32;
     let mut deleted = 0u32;

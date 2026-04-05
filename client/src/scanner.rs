@@ -111,9 +111,11 @@ async fn scan_subnet(local_ip: Ipv4Addr, prefix_len: u32) -> Result<Ipv4Addr> {
             continue;
         }
 
-        let permit = semaphore.clone().acquire_owned().await.map_err(|e| {
-            Error::new(ErrorKind::Other, format!("Semaphore error: {}", e))
-        })?;
+        let permit = semaphore
+            .clone()
+            .acquire_owned()
+            .await
+            .map_err(|e| Error::new(ErrorKind::Other, format!("Semaphore error: {}", e)))?;
         let tx = result_tx.clone();
         let flag = cancelled.clone();
 

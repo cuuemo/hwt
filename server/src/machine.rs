@@ -78,7 +78,10 @@ fn get_machine_code_windows() -> Result<String> {
     // Concatenate and hash
     let raw = format!("{}-{}-{}", cpu_id, board_sn, disk_sn);
     let hash = Sha256::digest(raw.as_bytes());
-    let machine_code = hash.iter().map(|b| format!("{:02x}", b)).collect::<String>();
+    let machine_code = hash
+        .iter()
+        .map(|b| format!("{:02x}", b))
+        .collect::<String>();
 
     Ok(machine_code)
 }

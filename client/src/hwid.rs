@@ -32,33 +32,53 @@ pub fn randomize_machine_ids() -> Result<(String, String)> {
 
     // === 1. MachineGuid (最重要的机器指纹) ===
     let machine_guid = generate_guid_lower();
-    write_reg(&hklm,
+    write_reg(
+        &hklm,
         r"SOFTWARE\Microsoft\Cryptography",
-        "MachineGuid", &machine_guid, "MachineGuid");
+        "MachineGuid",
+        &machine_guid,
+        "MachineGuid",
+    );
 
     // === 2. ProductId (格式: XXXXX-XXX-XXXXXXX-XXXXX) ===
     let product_id = generate_product_id();
-    write_reg(&hklm,
+    write_reg(
+        &hklm,
         r"SOFTWARE\Microsoft\Windows NT\CurrentVersion",
-        "ProductId", &product_id, "ProductId");
+        "ProductId",
+        &product_id,
+        "ProductId",
+    );
 
     // === 3. SQMClient MachineId ===
     let sqm_id = format!("{{{}}}", generate_guid_upper());
-    write_reg(&hklm,
+    write_reg(
+        &hklm,
         r"SOFTWARE\Microsoft\SQMClient",
-        "MachineId", &sqm_id, "SQM MachineId");
+        "MachineId",
+        &sqm_id,
+        "SQM MachineId",
+    );
 
     // === 4. HwProfileGuid ===
     let hw_guid = format!("{{{}}}", generate_guid_lower());
-    write_reg(&hklm,
+    write_reg(
+        &hklm,
         r"SYSTEM\CurrentControlSet\Control\IDConfigDB\Hardware Profiles\0001",
-        "HwProfileGuid", &hw_guid, "HwProfileGuid");
+        "HwProfileGuid",
+        &hw_guid,
+        "HwProfileGuid",
+    );
 
     // === 5. SusClientId (Windows Update) ===
     let sus_id = generate_guid_lower();
-    write_reg(&hklm,
+    write_reg(
+        &hklm,
         r"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate",
-        "SusClientId", &sus_id, "SusClientId");
+        "SusClientId",
+        &sus_id,
+        "SusClientId",
+    );
 
     // 删除 SusClientIdValidation (二进制校验值, 不匹配会导致 WU 重新生成)
     if let Ok(key) = hklm.open_subkey_with_flags(
@@ -155,7 +175,11 @@ fn guid_impl(upper: bool) -> String {
         b[0], b[1], b[2], b[3], b[4], b[5], b[6], b[7],
         b[8], b[9], b[10], b[11], b[12], b[13], b[14], b[15],
     );
-    if upper { s.to_uppercase() } else { s }
+    if upper {
+        s.to_uppercase()
+    } else {
+        s
+    }
 }
 
 /// 生成 N 字节伪随机数据 (基于时间纳秒 + 原子计数器)
@@ -174,7 +198,9 @@ fn random_bytes(n: usize) -> Vec<u8> {
 
     let mut out = Vec::with_capacity(n);
     for _ in 0..n {
-        state = state.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        state = state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
         out.push((state >> 33) as u8);
     }
     out

@@ -28,10 +28,13 @@ pub fn cleanup_phantom_devices() -> Result<(u32, u32)> {
     }
 
     // Step 1: Enumerate all devices
-    let h_dev_info = unsafe {
-        SetupDiGetClassDevsW(None, None, HWND::default(), DIGCF_ALLCLASSES)
-    }
-    .map_err(|e| Error::new(ErrorKind::Other, format!("SetupDiGetClassDevsW failed: {}", e)))?;
+    let h_dev_info = unsafe { SetupDiGetClassDevsW(None, None, HWND::default(), DIGCF_ALLCLASSES) }
+        .map_err(|e| {
+            Error::new(
+                ErrorKind::Other,
+                format!("SetupDiGetClassDevsW failed: {}", e),
+            )
+        })?;
 
     let _guard = DevInfoGuard(h_dev_info);
 
@@ -57,9 +60,8 @@ pub fn cleanup_phantom_devices() -> Result<(u32, u32)> {
         // Step 2: Check if phantom
         let mut status = CM_DEVNODE_STATUS_FLAGS(0);
         let mut problem = CM_PROB(0);
-        let ret = unsafe {
-            CM_Get_DevNode_Status(&mut status, &mut problem, dev_info_data.DevInst, 0)
-        };
+        let ret =
+            unsafe { CM_Get_DevNode_Status(&mut status, &mut problem, dev_info_data.DevInst, 0) };
 
         let is_phantom = (ret.0 == 13) || (problem.0 == 45);
         if !is_phantom {
@@ -70,9 +72,7 @@ pub fn cleanup_phantom_devices() -> Result<(u32, u32)> {
 
         // Step 3: Get device ID for logging
         let mut device_id_buf = [0u16; 260];
-        let _ = unsafe {
-            CM_Get_Device_IDW(dev_info_data.DevInst, &mut device_id_buf, 0)
-        };
+        let _ = unsafe { CM_Get_Device_IDW(dev_info_data.DevInst, &mut device_id_buf, 0) };
         let device_id = String::from_utf16_lossy(
             &device_id_buf[..device_id_buf
                 .iter()
@@ -107,9 +107,8 @@ pub fn cleanup_phantom_devices() -> Result<(u32, u32)> {
             continue;
         }
 
-        let remove_ok = unsafe {
-            SetupDiCallClassInstaller(DIF_REMOVE, h_dev_info, Some(&dev_info_data))
-        };
+        let remove_ok =
+            unsafe { SetupDiCallClassInstaller(DIF_REMOVE, h_dev_info, Some(&dev_info_data)) };
 
         if remove_ok.is_err() {
             log::error!("DIF_REMOVE failed for: {}", device_id);
@@ -137,7 +136,10 @@ pub fn cleanup_phantom_devices() -> Result<(u32, u32)> {
 
     log::info!(
         "Phantom device cleanup: scanned={}, phantom={}, removed={}, failed={}",
-        scanned, phantom_total, removed, failed
+        scanned,
+        phantom_total,
+        removed,
+        failed
     );
     Ok((scanned, removed))
 }

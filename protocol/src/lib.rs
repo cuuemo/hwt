@@ -66,7 +66,11 @@ mod tests {
         assert!(json.contains("\"server_time\":1711612800"));
         let decoded: Message = serde_json::from_str(&json).unwrap();
         match decoded {
-            Message::AuthResponse { authorized, message, server_time } => {
+            Message::AuthResponse {
+                authorized,
+                message,
+                server_time,
+            } => {
                 assert!(authorized);
                 assert_eq!(message, "ok");
                 assert_eq!(server_time, 1711612800);
@@ -79,12 +83,26 @@ mod tests {
     fn test_all_message_variants() {
         let variants: Vec<Message> = vec![
             Message::Handshake,
-            Message::HandshakeResponse { public_key: "pk".into() },
-            Message::KeyExchange { encrypted_key: "ek".into() },
+            Message::HandshakeResponse {
+                public_key: "pk".into(),
+            },
+            Message::KeyExchange {
+                encrypted_key: "ek".into(),
+            },
             Message::KeyExchangeOk,
-            Message::AuthRequest { client_id: "host".into(), client_mac: Some("mac".into()) },
-            Message::AuthRequest { client_id: "host".into(), client_mac: None },
-            Message::AuthResponse { authorized: false, message: "no".into(), server_time: 0 },
+            Message::AuthRequest {
+                client_id: "host".into(),
+                client_mac: Some("mac".into()),
+            },
+            Message::AuthRequest {
+                client_id: "host".into(),
+                client_mac: None,
+            },
+            Message::AuthResponse {
+                authorized: false,
+                message: "no".into(),
+                server_time: 0,
+            },
             Message::Heartbeat,
             Message::HeartbeatAck,
         ];
