@@ -71,7 +71,7 @@ def register(req: RegisterRequest, request: Request, db: Session = Depends(get_d
         password_hash=hash_password(plain_password),
         email=req.email,
         role=UserRole.user,
-        status=UserStatus.pending,
+        status=UserStatus.active,
     )
     db.add(user)
     db.commit()
@@ -92,7 +92,7 @@ def register(req: RegisterRequest, request: Request, db: Session = Depends(get_d
         id=user.id,
         username=user.username,
         status=user.status.value if isinstance(user.status, UserStatus) else user.status,
-        message="注册成功, 请等待管理员审核激活",
+        message="注册成功，请联系管理员获取授权",
     )
 
 

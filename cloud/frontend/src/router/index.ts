@@ -9,6 +9,12 @@ const routes: RouteRecordRaw[] = [
     meta: { requiresAuth: false },
   },
   {
+    path: '/register',
+    name: 'Register',
+    component: () => import('../views/Register.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
     path: '/',
     component: () => import('../layouts/AdminLayout.vue'),
     redirect: '/dashboard',
@@ -47,7 +53,7 @@ router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
   if (to.matched.some((record) => record.meta.requiresAuth !== false) && !token) {
     next('/login')
-  } else if (to.path === '/login' && token) {
+  } else if ((to.path === '/login' || to.path === '/register') && token) {
     next('/dashboard')
   } else {
     next()

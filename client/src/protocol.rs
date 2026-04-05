@@ -10,9 +10,31 @@ use crate::{cleanup, registry, scanner};
 
 const SERVER_PORT: u16 = 19800;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(300); // 5 minutes
+const MAX_RETRIES: u32 = 3;
+const RETRY_BASE_DELAY: Duration = Duration::from_secs(10);
 
 /// Run a full cleanup cycle: scan -> connect -> handshake -> auth -> cleanup -> heartbeat.
 pub async fn run_cleanup_cycle() -> Result<()> {
+    // Retry finding and connecting to server
+    let mut last_err = Error::new(ErrorKind::NotFound, "No server found");
+    for attempt in 0..MAX_RETRIES {
+        if attempt > 0 {
+            let delay = RETRY_BASE_DELAY * attempt;
+            log::info!("Retry {}/{} in {:?}...", attempt, MAX_RETRIES - 1, delay);
+            tokio::time::sleep(delay).await;
+        }
+        match try_cleanup_cycle().await {
+            Ok(()) => return Ok(()),
+            Err(e) => {
+                log::warn!("Attempt {} failed: {}", attempt + 1, e);
+                last_err = e;
+            }
+        }
+    }
+    Err(last_err)
+}
+
+async fn try_cleanup_cycle() -> Result<()> {
     // Step 1: Scan the local network for the HWT server
     let server_ip = scanner::find_server().await?;
     log::info!("Found HWT server at: {}", server_ip);

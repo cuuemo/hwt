@@ -27,3 +27,13 @@ export async function login(username: string, password: string): Promise<LoginRe
   })
   return res.data
 }
+
+export async function register(username: string, password: string, email?: string): Promise<{ id: number; username: string; status: string; message: string }> {
+  const passwordEncrypted = await encryptPassword(password)
+  const res = await request.post('/api/auth/register', {
+    username,
+    password_encrypted: passwordEncrypted,
+    email: email || null,
+  })
+  return res.data
+}

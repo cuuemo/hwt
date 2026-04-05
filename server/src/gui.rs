@@ -13,6 +13,10 @@ pub enum AuthCommand {
         username: String,
         password: String,
     },
+    Register {
+        username: String,
+        password: String,
+    },
 }
 
 /// Results sent from background tokio runtime back to the GUI.
@@ -23,6 +27,12 @@ pub enum AuthResult {
         message: String,
     },
     LoginFailed {
+        error: String,
+    },
+    RegisterSuccess {
+        message: String,
+    },
+    RegisterFailed {
         error: String,
     },
     ReVerifySuccess {
@@ -38,6 +48,7 @@ pub enum AuthResult {
 #[derive(PartialEq)]
 enum Page {
     Login,
+    Register,
     Main,
 }
 
@@ -48,6 +59,14 @@ pub struct App {
     password: String,
     login_error: Option<String>,
     logging_in: bool,
+
+    // Register state
+    reg_username: String,
+    reg_password: String,
+    reg_password2: String,
+    reg_error: Option<String>,
+    reg_message: Option<String>,
+    registering: bool,
 
     // Authorization info
     authorized: Arc<AtomicBool>,
@@ -87,6 +106,12 @@ impl App {
             password: String::new(),
             login_error: None,
             logging_in: false,
+            reg_username: String::new(),
+            reg_password: String::new(),
+            reg_password2: String::new(),
+            reg_error: None,
+            reg_message: None,
+            registering: false,
             authorized,
             license_type: String::new(),
             expire_at: None,
@@ -124,6 +149,15 @@ impl App {
                     self.logging_in = false;
                     self.login_error = Some(error);
                 }
+                AuthResult::RegisterSuccess { message } => {
+                    self.registering = false;
+                    self.reg_message = Some(message);
+                    self.reg_error = None;
+                }
+                AuthResult::RegisterFailed { error } => {
+                    self.registering = false;
+                    self.reg_error = Some(error);
+                }
                 AuthResult::ReVerifySuccess {
                     license_type,
                     expire_at,
@@ -160,57 +194,46 @@ impl App {
     }
 
     fn render_login_page(&mut self, ui: &mut egui::Ui) {
+        let style = ui.style_mut();
+        style.spacing.item_spacing = egui::vec2(8.0, 10.0);
+
         ui.vertical_centered(|ui| {
-            ui.add_space(40.0);
-            ui.heading("Net Admin Server V1.0");
+            ui.add_space(30.0);
+            ui.visuals_mut().override_text_color = Some(egui::Color32::from_rgb(220, 230, 255));
+            ui.heading(egui::RichText::new("⚡ Net Admin Server").size(22.0).strong());
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new("V1.0").size(12.0).color(egui::Color32::from_rgb(120, 140, 180)));
             ui.add_space(20.0);
 
-            egui::Grid::new("login_grid")
-                .num_columns(2)
-                .spacing([10.0, 10.0])
-                .show(ui, |ui| {
-                    ui.label("Account:");
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.username)
-                            .desired_width(200.0),
-                    );
-                    ui.end_row();
-
-                    ui.label("Password:");
-                    ui.add(
-                        egui::TextEdit::singleline(&mut self.password)
-                            .password(true)
-                            .desired_width(200.0),
-                    );
-                    ui.end_row();
-                });
-
-            ui.add_space(10.0);
-
-            // Machine code display (truncated)
-            let mc_display = if self.machine_code.len() > 20 {
-                format!("{}...", &self.machine_code[..20])
+            let mc_display = if self.machine_code.len() > 24 {
+                format!("{}...", &self.machine_code[..24])
             } else {
                 self.machine_code.clone()
             };
-            ui.label(format!("Machine Code: {}", mc_display));
+            ui.label(egui::RichText::new(format!("🖥 {}", mc_display)).size(11.0).color(egui::Color32::from_rgb(100, 120, 160)));
+            ui.add_space(16.0);
 
-            ui.add_space(15.0);
+            egui::Frame::none()
+                .fill(egui::Color32::from_rgba_premultiplied(30, 40, 70, 200))
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(20.0))
+                .show(ui, |ui| {
+                    ui.set_width(280.0);
+                    egui::Grid::new("login_grid").num_columns(2).spacing([8.0, 10.0]).show(ui, |ui| {
+                        ui.label(egui::RichText::new("账号").color(egui::Color32::from_rgb(160, 180, 220)));
+                        ui.add(egui::TextEdit::singleline(&mut self.username).desired_width(180.0).hint_text("请输入账号"));
+                        ui.end_row();
+                        ui.label(egui::RichText::new("密码").color(egui::Color32::from_rgb(160, 180, 220)));
+                        ui.add(egui::TextEdit::singleline(&mut self.password).password(true).desired_width(180.0).hint_text("请输入密码"));
+                        ui.end_row();
+                    });
+                });
 
-            let login_enabled = !self.logging_in
-                && !self.username.is_empty()
-                && !self.password.is_empty();
+            ui.add_space(12.0);
 
-            let btn_text = if self.logging_in {
-                "Logging in..."
-            } else {
-                "Login"
-            };
-
-            if ui
-                .add_enabled(login_enabled, egui::Button::new(btn_text).min_size(egui::vec2(120.0, 30.0)))
-                .clicked()
-            {
+            let login_enabled = !self.logging_in && !self.username.is_empty() && !self.password.is_empty();
+            let btn_text = if self.logging_in { "登录中..." } else { "登 录" };
+            if ui.add_enabled(login_enabled, egui::Button::new(egui::RichText::new(btn_text).size(14.0)).min_size(egui::vec2(140.0, 32.0))).clicked() {
                 self.login_error = None;
                 self.logging_in = true;
                 let _ = self.cmd_tx.send(AuthCommand::Login {
@@ -219,10 +242,86 @@ impl App {
                 });
             }
 
-            ui.add_space(10.0);
-
             if let Some(ref err) = self.login_error {
-                ui.colored_label(egui::Color32::RED, format!("Login failed: {}", err));
+                ui.add_space(6.0);
+                ui.colored_label(egui::Color32::from_rgb(255, 100, 100), format!("✗ {}", err));
+            }
+
+            ui.add_space(10.0);
+            if ui.small_button(egui::RichText::new("没有账号？立即注册").color(egui::Color32::from_rgb(100, 160, 255))).clicked() {
+                self.login_error = None;
+                self.page = Page::Register;
+            }
+        });
+    }
+
+    fn render_register_page(&mut self, ui: &mut egui::Ui) {
+        ui.vertical_centered(|ui| {
+            ui.add_space(30.0);
+            ui.heading(egui::RichText::new("📝 注册账号").size(22.0).strong());
+            ui.add_space(20.0);
+
+            egui::Frame::none()
+                .fill(egui::Color32::from_rgba_premultiplied(30, 40, 70, 200))
+                .rounding(egui::Rounding::same(8.0))
+                .inner_margin(egui::Margin::same(20.0))
+                .show(ui, |ui| {
+                    ui.set_width(280.0);
+                    egui::Grid::new("reg_grid").num_columns(2).spacing([8.0, 10.0]).show(ui, |ui| {
+                        ui.label(egui::RichText::new("账号").color(egui::Color32::from_rgb(160, 180, 220)));
+                        ui.add(egui::TextEdit::singleline(&mut self.reg_username).desired_width(180.0).hint_text("2-64个字符"));
+                        ui.end_row();
+                        ui.label(egui::RichText::new("密码").color(egui::Color32::from_rgb(160, 180, 220)));
+                        ui.add(egui::TextEdit::singleline(&mut self.reg_password).password(true).desired_width(180.0).hint_text("至少6个字符"));
+                        ui.end_row();
+                        ui.label(egui::RichText::new("确认密码").color(egui::Color32::from_rgb(160, 180, 220)));
+                        ui.add(egui::TextEdit::singleline(&mut self.reg_password2).password(true).desired_width(180.0).hint_text("再次输入密码"));
+                        ui.end_row();
+                    });
+                });
+
+            ui.add_space(12.0);
+
+            if let Some(ref msg) = self.reg_message.clone() {
+                ui.colored_label(egui::Color32::from_rgb(100, 220, 100), format!("✓ {}", msg));
+                ui.add_space(6.0);
+                if ui.button("返回登录").clicked() {
+                    self.reg_message = None;
+                    self.reg_username.clear();
+                    self.reg_password.clear();
+                    self.reg_password2.clear();
+                    self.page = Page::Login;
+                }
+                return;
+            }
+
+            let reg_enabled = !self.registering
+                && self.reg_username.len() >= 2
+                && self.reg_password.len() >= 6
+                && !self.reg_password2.is_empty();
+            let btn_text = if self.registering { "注册中..." } else { "注 册" };
+            if ui.add_enabled(reg_enabled, egui::Button::new(egui::RichText::new(btn_text).size(14.0)).min_size(egui::vec2(140.0, 32.0))).clicked() {
+                if self.reg_password != self.reg_password2 {
+                    self.reg_error = Some("两次密码不一致".to_string());
+                } else {
+                    self.reg_error = None;
+                    self.registering = true;
+                    let _ = self.cmd_tx.send(AuthCommand::Register {
+                        username: self.reg_username.clone(),
+                        password: self.reg_password.clone(),
+                    });
+                }
+            }
+
+            if let Some(ref err) = self.reg_error {
+                ui.add_space(6.0);
+                ui.colored_label(egui::Color32::from_rgb(255, 100, 100), format!("✗ {}", err));
+            }
+
+            ui.add_space(10.0);
+            if ui.small_button(egui::RichText::new("已有账号？返回登录").color(egui::Color32::from_rgb(100, 160, 255))).clicked() {
+                self.reg_error = None;
+                self.page = Page::Login;
             }
         });
     }
@@ -335,6 +434,7 @@ impl eframe::App for App {
         egui::CentralPanel::default().show(ctx, |ui| {
             match self.page {
                 Page::Login => self.render_login_page(ui),
+                Page::Register => self.render_register_page(ui),
                 Page::Main => self.render_main_page(ui),
             }
         });
@@ -364,7 +464,7 @@ async fn background_loop(
     result_tx: mpsc::Sender<AuthResult>,
 ) {
     let http_client = reqwest::Client::new();
-    let cloud_base_url = obfstr::obfstr!("https://hwt-cloud.example.com").to_string();
+    let cloud_base_url = String::new(); // use DEFAULT_CLOUD_BASE_URL from auth.rs
 
     // Channel for log messages from the TCP listener
     let (log_tx, log_rx) = mpsc::channel::<String>();
@@ -396,6 +496,12 @@ async fn background_loop(
     loop {
         // Check for commands from GUI (non-blocking)
         match cmd_rx.try_recv() {
+            Ok(AuthCommand::Register { username, password }) => {
+                match auth::cloud_register(&http_client, &cloud_base_url, &username, &password).await {
+                    Ok(msg) => { let _ = result_tx.send(AuthResult::RegisterSuccess { message: msg }); }
+                    Err(e) => { let _ = result_tx.send(AuthResult::RegisterFailed { error: e.to_string() }); }
+                }
+            }
             Ok(AuthCommand::Login { username, password }) => {
                 let machine_code = machine::get_machine_code().unwrap_or_else(|e| {
                     log::error!("Machine code error: {}", e);

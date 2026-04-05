@@ -1,5 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 
 from app.api import auth, verify, admin
 from app.database import engine, Base, SessionLocal
@@ -57,3 +60,15 @@ async def init_admin():
 def root():
     """健康检查."""
     return {"status": "ok", "service": "HWT 网维系统云端"}
+
+
+@app.get("/admin")
+def admin_ui():
+    """管理后台."""
+    return FileResponse(os.path.join(os.path.dirname(__file__), "../static/admin.html"))
+
+
+# 挂载静态文件
+_static_dir = os.path.join(os.path.dirname(__file__), "../static")
+if os.path.isdir(_static_dir):
+    app.mount("/static", StaticFiles(directory=_static_dir), name="static")

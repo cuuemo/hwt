@@ -15,6 +15,45 @@ pub struct VerifyResponse {
     pub message: String,
 }
 
+/// Register a new account on the cloud server.
+pub async fn cloud_register(
+    client: &reqwest::Client,
+    base_url: &str,
+    username: &str,
+    password: &str,
+) -> Result<String> {
+    let base_url = if base_url.is_empty() { DEFAULT_CLOUD_BASE_URL } else { base_url };
+
+    // Get public key for RSA encryption
+    let url = format!("{}/api/auth/public-key", base_url);
+    let resp = client.get(&url).send().await
+        .map_err(|e| Error::new(ErrorKind::Other, format!("GET public-key failed: {e}")))?;
+    let body: serde_json::Value = resp.json().await
+        .map_err(|e| Error::new(ErrorKind::Other, format!("parse public-key JSON: {e}")))?;
+    let pem_str = body["public_key"].as_str()
+        .ok_or_else(|| Error::new(ErrorKind::InvalidData, "missing public_key field"))?;
+
+    let public_key = public_key_from_pem(pem_str)?;
+    let encrypted = rsa_encrypt(&public_key, password.as_bytes())?;
+    let password_encrypted = BASE64.encode(&encrypted);
+
+    #[derive(Serialize)]
+    struct RegisterRequest { username: String, password_encrypted: String }
+
+    let resp = client.post(&format!("{}/api/auth/register", base_url))
+        .json(&RegisterRequest { username: username.to_string(), password_encrypted })
+        .send().await
+        .map_err(|e| Error::new(ErrorKind::Other, format!("POST register failed: {e}")))?;
+
+    if !resp.status().is_success() {
+        let body: serde_json::Value = resp.json().await.unwrap_or_default();
+        return Err(Error::new(ErrorKind::Other,
+            body["detail"].as_str().unwrap_or("注册失败").to_string()));
+    }
+
+    Ok("注册成功，请联系管理员获取授权后登录".to_string())
+}
+
 /// Perform RSA handshake with the cloud server to establish an AES session.
 ///
 /// Returns (session_id, session_key).
