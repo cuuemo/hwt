@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+    <title>Net Admin Server - Login</title>
+    <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+<div class="container login-page">
+    <div class="header">
+        <h1>Net Admin Server</h1>
+        <div class="system-status"><span>V1.0</span></div>
+    </div>
+    <div class="card form-card">
+        <h3>Login</h3>
+        <div class="machine-code" id="machineCode">loading...</div>
+        <div class="form-group">
+            <label>Account</label>
+            <input type="text" id="username" placeholder="Enter account" autocomplete="username"/>
+        </div>
+        <div class="form-group">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="Enter password" autocomplete="current-password"/>
+        </div>
+        <div class="form-error" id="error"></div>
+        <button id="loginBtn" onclick="doLogin()">Login</button>
+        <div class="form-link"><a href="/register">No account? Register now</a></div>
+    </div>
+</div>
+<div class="loading-overlay" id="loading"><div class="loader"></div></div>
+<script src="/assets/common.js"></script>
+<script>
+    // Load machine code
+    fetch('/api/state').then(r=>r.json()).then(function(s) {
+        var mc = s.machine_code || '';
+        document.getElementById('machineCode').textContent = mc.length > 32 ? mc.substring(0,32) + '...' : mc;
+    }).catch(function(){});
+
+    // Listen for login result via WebSocket
+    var ws = connectWS(function(event) {
+        if (event.type === 'LoginResult') {
+            showLoading(false);
+            document.getElementById('loginBtn').disabled = false;
+            if (event.success) {
+                location.href = '/dashboard';
+            } else {
+                var err = document.getElementById('error');
+                err.textContent = event.message;
+                err.classList.add('show');
+            }
+        }
+    });
+
+    function doLogin() {
+        var username = document.getElementById('username').value.trim();
+        var password = document.getElementById('password').value;
+        if (!username || !password) return;
+
+        document.getElementById('error').classList.remove('show');
+        document.getElementById('loginBtn').disabled = true;
+        showLoading(true);
+
+        fetch('/api/login', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: username, password: password})
+        }).catch(function() {
+            showLoading(false);
+            document.getElementById('loginBtn').disabled = false;
+            var err = document.getElementById('error');
+            err.textContent = 'Network error';
+            err.classList.add('show');
+        });
+    }
+
+    // Enter key submits
+    document.getElementById('password').addEventListener('keydown', function(e) {
+        if (e.key === 'Enter') doLogin();
+    });
+</script>
+</body>
+</html>

@@ -1,3 +1,4 @@
+use crate::web::{broadcast_log, ClientInfoDto, ServerEvent};
 use chrono::Local;
 use hwt_protocol::crypto::{generate_rsa_keypair, public_key_to_pem, rsa_decrypt};
 use hwt_protocol::frame::{read_encrypted, read_frame, write_encrypted, write_frame};
@@ -7,7 +8,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use tokio::net::{TcpListener, TcpStream};
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, Mutex};
 
 const LISTEN_PORT: u16 = 19800;
 
@@ -20,25 +21,20 @@ pub struct ClientInfo {
 }
 
 /// Start TCP listener on 0.0.0.0:19800 and handle incoming client connections.
-///
-/// `authorized` is a shared flag indicating whether this server is authorized.
-/// `clients` is the shared list of online clients shown in the GUI.
-/// `log_tx` sends log messages to the GUI.
 pub async fn start_listener(
     authorized: Arc<AtomicBool>,
     clients: Arc<Mutex<Vec<ClientInfo>>>,
-    log_tx: std::sync::mpsc::Sender<String>,
+    event_tx: broadcast::Sender<ServerEvent>,
 ) -> Result<()> {
-    // Generate RSA keypair for this session (regenerated on each server start)
     let (rsa_private, rsa_public) = generate_rsa_keypair();
     let public_key_pem = public_key_to_pem(&rsa_public);
 
     let listener = TcpListener::bind(("0.0.0.0", LISTEN_PORT)).await?;
-    let _ = log_tx.send(format!(
-        "[{}] TCP listener started on 0.0.0.0:{}",
-        Local::now().format("%H:%M:%S"),
-        LISTEN_PORT,
-    ));
+    broadcast_log(
+        &event_tx,
+        "info",
+        &format!("TCP 监听已启动 0.0.0.0:{}", LISTEN_PORT),
+    );
 
     loop {
         let (stream, peer_addr) = listener.accept().await?;
@@ -46,19 +42,18 @@ pub async fn start_listener(
         let key = rsa_private.clone();
         let pem = public_key_pem.clone();
         let clients_list = clients.clone();
-        let ltx = log_tx.clone();
+        let etx = event_tx.clone();
 
         tokio::spawn(async move {
             if let Err(e) =
-                handle_client(stream, peer_addr, auth, key, pem, clients_list, ltx.clone()).await
+                handle_client(stream, peer_addr, auth, key, pem, clients_list, etx.clone()).await
             {
                 log::error!("Client {} error: {}", peer_addr, e);
-                let _ = ltx.send(format!(
-                    "[{}] Client {} disconnected: {}",
-                    Local::now().format("%H:%M:%S"),
-                    peer_addr,
-                    e,
-                ));
+                broadcast_log(
+                    &etx,
+                    "warn",
+                    &format!("客户端 {} 断开: {}", peer_addr, e),
+                );
             }
         });
     }
@@ -71,13 +66,13 @@ async fn handle_client(
     rsa_private: rsa::RsaPrivateKey,
     public_key_pem: String,
     clients: Arc<Mutex<Vec<ClientInfo>>>,
-    log_tx: std::sync::mpsc::Sender<String>,
+    event_tx: broadcast::Sender<ServerEvent>,
 ) -> Result<()> {
-    let _ = log_tx.send(format!(
-        "[{}] New connection from {}",
-        Local::now().format("%H:%M:%S"),
-        peer_addr,
-    ));
+    broadcast_log(
+        &event_tx,
+        "info",
+        &format!("新连接: {}", peer_addr),
+    );
 
     // === RSA Handshake ===
 
@@ -138,11 +133,11 @@ async fn handle_client(
     // 4. Send key_exchange_ok (encrypted frame using session key)
     write_encrypted(&mut stream, &session_key, &Message::KeyExchangeOk).await?;
 
-    let _ = log_tx.send(format!(
-        "[{}] Handshake completed with {}",
-        Local::now().format("%H:%M:%S"),
-        peer_addr,
-    ));
+    broadcast_log(
+        &event_tx,
+        "info",
+        &format!("握手完成: {}", peer_addr),
+    );
 
     // === Business Loop ===
     loop {
@@ -170,13 +165,19 @@ async fn handle_client(
                         client_id: client_id.clone(),
                         connected_at: Local::now(),
                     };
-                    clients.lock().await.push(info);
-                    let _ = log_tx.send(format!(
-                        "[{}] Client {} ({}) authorized",
-                        Local::now().format("%H:%M:%S"),
-                        client_id,
-                        peer_addr.ip(),
-                    ));
+                    let mut guard = clients.lock().await;
+                    guard.push(info);
+                    let snapshot: Vec<ClientInfoDto> =
+                        guard.iter().map(ClientInfoDto::from).collect();
+                    drop(guard);
+                    let _ = event_tx.send(ServerEvent::ClientListChanged {
+                        clients: snapshot,
+                    });
+                    broadcast_log(
+                        &event_tx,
+                        "success",
+                        &format!("客户端 {} ({}) 已授权", client_id, peer_addr.ip()),
+                    );
                 }
             }
             Message::Heartbeat => {
@@ -191,12 +192,18 @@ async fn handle_client(
 
     // Remove from online list
     let peer_ip = peer_addr.ip();
-    clients.lock().await.retain(|c| c.ip != peer_ip);
-    let _ = log_tx.send(format!(
-        "[{}] Client {} disconnected",
-        Local::now().format("%H:%M:%S"),
-        peer_addr,
-    ));
+    let mut guard = clients.lock().await;
+    guard.retain(|c| c.ip != peer_ip);
+    let snapshot: Vec<ClientInfoDto> = guard.iter().map(ClientInfoDto::from).collect();
+    drop(guard);
+    let _ = event_tx.send(ServerEvent::ClientListChanged {
+        clients: snapshot,
+    });
+    broadcast_log(
+        &event_tx,
+        "info",
+        &format!("客户端 {} 断开连接", peer_addr),
+    );
 
     Ok(())
 }

@@ -4,8 +4,12 @@ mod protocol;
 mod registry;
 mod scanner;
 mod service;
+mod web;
 
+use std::sync::Arc;
 use std::time::Duration;
+use tokio::sync::broadcast;
+use web::{ClientEvent, ClientState};
 
 fn main() {
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
@@ -39,11 +43,7 @@ fn main() {
             }
             #[cfg(not(windows))]
             {
-                eprintln!("Usage: hwt-client <install|uninstall|status|run>");
-                eprintln!("  install    - Register as Windows service and start");
-                eprintln!("  uninstall  - Stop and remove Windows service");
-                eprintln!("  status     - Query service status");
-                eprintln!("  run        - Run in foreground (debug mode)");
+                run_foreground();
             }
         }
     }
@@ -55,11 +55,23 @@ fn run_foreground() {
 
     let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
     rt.block_on(async {
+        let (event_tx, _) = broadcast::channel::<ClientEvent>(256);
+        let state = Arc::new(ClientState::new(event_tx));
+
+        // Spawn web UI server
+        tokio::spawn(web::start_web_server(state.clone()));
+
         loop {
-            match protocol::run_cleanup_cycle().await {
+            match protocol::run_cleanup_cycle(state.clone()).await {
                 Ok(_) => log::info!("Cleanup cycle completed successfully"),
                 Err(e) => log::error!("Cleanup cycle failed: {}", e),
             }
+            // Reset status for next cycle
+            *state.connection.write().await = "idle".to_string();
+            *state.auth.write().await = "pending".to_string();
+            *state.heartbeat.write().await = "--".to_string();
+            web::broadcast_status(&state).await;
+
             log::info!("Waiting 60 seconds before next cycle...");
             tokio::time::sleep(Duration::from_secs(60)).await;
         }

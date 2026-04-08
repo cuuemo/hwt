@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
+    <title>HWT Client</title>
+    <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+<div class="container client-page">
+    <div class="header">
+        <h1>HWT Client</h1>
+        <div class="system-status">
+            <span class="status-indicator" id="statusDot"></span>
+            <span id="statusText">Initializing</span>
+            <span id="currentTime"></span>
+        </div>
+    </div>
+
+    <div class="card status-card">
+        <h3>Status</h3>
+        <table>
+            <tr><td>Connection</td><td id="connStatus"><span class="status-tag status-pending">Searching</span></td></tr>
+            <tr><td>Authorization</td><td id="authStatus"><span class="status-tag status-pending">Pending</span></td></tr>
+            <tr><td>Cleanup</td><td id="cleanupStatus">--</td></tr>
+            <tr><td>Heartbeat</td><td id="heartbeatStatus">--</td></tr>
+        </table>
+    </div>
+
+    <div class="card log-card">
+        <h3>Log</h3>
+        <div class="log-area empty" id="logArea" data-empty="Waiting for events..."></div>
+    </div>
+</div>
+<script src="/assets/common.js"></script>
+<script>
+    var logArea = document.getElementById('logArea');
+
+    function setTag(elId, text, cls) {
+        document.getElementById(elId).innerHTML = '<span class="status-tag ' + cls + '">' + esc(text) + '</span>';
+    }
+
+    function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+    function handleEvent(event) {
+        switch (event.type) {
+            case 'InitialState':
+            case 'StatusChanged':
+                if (event.connection) {
+                    var conn = event.connection;
+                    if (conn.indexOf('connected') >= 0) {
+                        setTag('connStatus', conn, 'status-valid');
+                        document.getElementById('statusDot').className = 'status-indicator online';
+                        document.getElementById('statusText').textContent = 'Connected';
+                    } else if (conn === 'searching') {
+                        setTag('connStatus', 'Searching...', 'status-pending');
+                        document.getElementById('statusDot').className = 'status-indicator offline';
+                        document.getElementById('statusText').textContent = 'Searching';
+                    } else {
+                        setTag('connStatus', conn, 'status-error');
+                        document.getElementById('statusDot').className = 'status-indicator offline';
+                        document.getElementById('statusText').textContent = 'Disconnected';
+                    }
+                }
+                if (event.auth) {
+                    var auth = event.auth;
+                    if (auth === 'authorized') {
+                        setTag('authStatus', 'Authorized', 'status-valid');
+                    } else if (auth === 'pending') {
+                        setTag('authStatus', 'Pending', 'status-pending');
+                    } else {
+                        setTag('authStatus', auth, 'status-error');
+                    }
+                }
+                if (event.heartbeat) {
+                    document.getElementById('heartbeatStatus').textContent = event.heartbeat;
+                }
+                break;
+            case 'CleanupResult':
+                var text = 'Scanned: ' + event.scanned + ', Removed: ' + event.removed;
+                if (event.registry_cleaned > 0) text += ', Registry: ' + event.registry_cleaned;
+                if (event.ids_randomized) text += ', IDs randomized';
+                document.getElementById('cleanupStatus').textContent = text;
+                break;
+            case 'Log':
+                appendLog(logArea, event.timestamp, event.level, event.message);
+                break;
+        }
+    }
+
+    // Initial state
+    fetch('/api/state').then(r=>r.json()).then(handleEvent).catch(function(){});
+
+    connectWS(handleEvent);
+    updateCurrentTime(document.getElementById('currentTime'));
+</script>
+</body>
+</html>

@@ -1,59 +1,43 @@
 mod auth;
-mod gui;
 mod listener;
 mod machine;
+mod web;
 
-use gui::{App, AuthCommand, AuthResult};
-use listener::ClientInfo;
 use std::sync::atomic::AtomicBool;
-use std::sync::mpsc;
 use std::sync::Arc;
-use tokio::sync::Mutex;
+use tokio::sync::{broadcast, mpsc, Mutex};
+use web::{AppState, AuthCommand, ServerEvent};
 
-fn main() -> Result<(), eframe::Error> {
+#[tokio::main]
+async fn main() {
     env_logger::init();
 
-    // Shared state between GUI and background threads
-    let authorized = Arc::new(AtomicBool::new(false));
-    let clients: Arc<Mutex<Vec<ClientInfo>>> = Arc::new(Mutex::new(Vec::new()));
+    let (event_tx, _) = broadcast::channel::<ServerEvent>(256);
+    let (cmd_tx, cmd_rx) = mpsc::channel::<AuthCommand>(32);
 
-    // Channels for GUI <-> background communication
-    let (cmd_tx, cmd_rx) = mpsc::channel::<AuthCommand>();
-    let (result_tx, result_rx) = mpsc::channel::<AuthResult>();
+    let state = Arc::new(AppState {
+        authorized: Arc::new(AtomicBool::new(false)),
+        logged_in: Arc::new(AtomicBool::new(false)),
+        license_type: Default::default(),
+        expire_at: Default::default(),
+        machine_code: Default::default(),
+        last_verify_time: Default::default(),
+        clients: Arc::new(Mutex::new(Vec::new())),
+        event_tx: event_tx.clone(),
+        cmd_tx,
+    });
 
-    // Spawn background tokio runtime in a separate thread
-    gui::spawn_background_runtime(authorized.clone(), clients.clone(), cmd_rx, result_tx);
+    // Spawn background auth loop
+    let bg_state = state.clone();
+    tokio::spawn(async move {
+        web::background_loop(bg_state, cmd_rx).await;
+    });
 
-    // Run eframe/egui on the main thread
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([480.0, 640.0])
-            .with_title("Net Admin Server"),
-        ..Default::default()
-    };
-
-    eframe::run_native(
-        "hwt-server",
-        options,
-        Box::new(move |cc| {
-            // Load Chinese font
-            let mut fonts = egui::FontDefinitions::default();
-            fonts.font_data.insert(
-                "noto_sans_sc".to_owned(),
-                egui::FontData::from_static(include_bytes!("../assets/NotoSansSC-Regular.otf")),
-            );
-            fonts
-                .families
-                .entry(egui::FontFamily::Proportional)
-                .or_default()
-                .insert(0, "noto_sans_sc".to_owned());
-            fonts
-                .families
-                .entry(egui::FontFamily::Monospace)
-                .or_default()
-                .push("noto_sans_sc".to_owned());
-            cc.egui_ctx.set_fonts(fonts);
-            Ok(Box::new(App::new(authorized, clients, cmd_tx, result_rx)))
-        }),
-    )
+    // Start web server on port 19880
+    let app = web::build_router(state);
+    let listener = tokio::net::TcpListener::bind("0.0.0.0:19880")
+        .await
+        .expect("Failed to bind port 19880");
+    log::info!("Web UI listening on http://0.0.0.0:19880");
+    axum::serve(listener, app).await.unwrap();
 }

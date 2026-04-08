@@ -154,16 +154,28 @@ mod win {
         // Build tokio runtime and run main loop
         let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
         rt.block_on(async {
-            // Wrap in Arc so we can check from inside the loop without moving
-            use std::sync::Arc;
-            use std::sync::Mutex;
-            let shutdown_rx = Arc::new(Mutex::new(Some(shutdown_rx)));
+            use std::sync::Arc as StdArc;
+            use std::sync::Mutex as StdMutex;
+            let shutdown_rx = StdArc::new(StdMutex::new(Some(shutdown_rx)));
+
+            let (event_tx, _) =
+                tokio::sync::broadcast::channel::<crate::web::ClientEvent>(256);
+            let state = std::sync::Arc::new(crate::web::ClientState::new(event_tx));
+
+            // Spawn web UI server
+            tokio::spawn(crate::web::start_web_server(state.clone()));
 
             loop {
-                match crate::protocol::run_cleanup_cycle().await {
+                match crate::protocol::run_cleanup_cycle(state.clone()).await {
                     Ok(_) => log::info!("Cleanup cycle completed successfully"),
                     Err(e) => log::error!("Cleanup cycle failed: {}", e),
                 }
+
+                // Reset status for next cycle
+                *state.connection.write().await = "idle".to_string();
+                *state.auth.write().await = "pending".to_string();
+                *state.heartbeat.write().await = "--".to_string();
+                crate::web::broadcast_status(&state).await;
 
                 // Wait 60 seconds or until stop signal
                 let rx_clone = shutdown_rx.clone();
