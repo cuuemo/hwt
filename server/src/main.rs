@@ -10,9 +10,8 @@ use web::{AppState, AuthCommand, ServerEvent};
 
 #[tokio::main]
 async fn main() {
-    env_logger::init();
-
     let (event_tx, _) = broadcast::channel::<ServerEvent>(256);
+    web::init_logger(event_tx.clone());
     let (cmd_tx, cmd_rx) = mpsc::channel::<AuthCommand>(32);
 
     let state = Arc::new(AppState {

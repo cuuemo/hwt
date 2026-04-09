@@ -6,8 +6,47 @@ use axum::routing::get;
 use axum::Json;
 use axum::Router;
 use serde::Serialize;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::{broadcast, RwLock};
+
+// ─── Log bridge: captures Rust log output → broadcast channel ─────
+
+static LOG_TX: OnceLock<broadcast::Sender<ClientEvent>> = OnceLock::new();
+
+struct WebLogger;
+
+impl log::Log for WebLogger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.level() <= log::Level::Info
+    }
+
+    fn log(&self, record: &log::Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        let level = match record.level() {
+            log::Level::Error => "error",
+            log::Level::Warn => "warn",
+            log::Level::Info | log::Level::Debug | log::Level::Trace => "info",
+        };
+        eprintln!("[{}] {}: {}", chrono::Local::now().format("%H:%M:%S"), record.level(), record.args());
+        if let Some(tx) = LOG_TX.get() {
+            let _ = tx.send(ClientEvent::Log {
+                timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+                level: level.to_string(),
+                message: format!("{}", record.args()),
+            });
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+pub fn init_logger(event_tx: broadcast::Sender<ClientEvent>) {
+    let _ = LOG_TX.set(event_tx);
+    log::set_logger(&WebLogger).unwrap_or(());
+    log::set_max_level(log::LevelFilter::Info);
+}
 
 const CLIENT_HTML: &str = include_str!("assets/client.html");
 const STYLE_CSS: &str = include_str!("assets/style.css");

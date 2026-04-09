@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
@@ -7,55 +7,57 @@
     <link rel="stylesheet" href="/assets/style.css"/>
 </head>
 <body>
+<button class="lang-btn" onclick="toggleLang()" data-i18n="lang.toggle"></button>
 <div class="container dashboard">
     <div class="header">
-        <h1>Net Admin Server</h1>
+        <h1 data-i18n="dash.title">Net Admin Server</h1>
         <div class="system-status">
             <span class="status-indicator online" id="statusDot"></span>
-            <span id="statusText">Running</span>
+            <span id="statusText" data-i18n="dash.running">Running</span>
             <span id="currentTime"></span>
         </div>
     </div>
 
     <div class="card status-card">
-        <h3>Authorization</h3>
+        <h3 data-i18n="dash.auth_heading">Authorization</h3>
         <table>
-            <tr><td>Status</td><td id="authStatus">--</td></tr>
-            <tr><td>License</td><td id="licenseType">--</td></tr>
-            <tr><td>Expires</td><td id="expireAt">--</td></tr>
-            <tr><td>Machine Code</td><td id="machineCode" style="word-break:break-all;font-size:12px;">--</td></tr>
-            <tr><td>Last Verified</td><td id="lastVerify">--</td></tr>
+            <tr><td data-i18n="dash.status">Status</td><td id="authStatus">--</td></tr>
+            <tr><td data-i18n="dash.license">License</td><td id="licenseType">--</td></tr>
+            <tr><td data-i18n="dash.expires">Expires</td><td id="expireAt">--</td></tr>
+            <tr><td data-i18n="dash.machine_code">Machine Code</td><td id="machineCode" style="word-break:break-all;font-size:12px;">--</td></tr>
+            <tr><td data-i18n="dash.last_verify">Last Verified</td><td id="lastVerify">--</td></tr>
         </table>
     </div>
 
     <div class="card clients-card">
-        <h3>Online Clients (<span id="clientCount">0</span>)</h3>
+        <h3><span data-i18n="dash.clients_heading">Online Clients</span> (<span id="clientCount">0</span>)</h3>
         <table>
-            <thead><tr><th>IP</th><th>Client ID</th><th>Connected</th></tr></thead>
+            <thead><tr><th data-i18n="dash.th_ip">IP</th><th data-i18n="dash.th_client_id">Client ID</th><th data-i18n="dash.th_connected">Connected</th></tr></thead>
             <tbody id="clientsBody"></tbody>
         </table>
     </div>
 
     <div class="card log-card">
-        <h3>Log</h3>
-        <div class="log-area empty" id="logArea" data-empty="No logs yet"></div>
+        <h3 data-i18n="dash.log_heading">Log</h3>
+        <div class="log-area empty" id="logArea" data-i18n-empty="dash.no_logs" data-empty="No logs yet"></div>
     </div>
 </div>
 <script src="/assets/common.js"></script>
 <script>
+    applyI18n();
     var logArea = document.getElementById('logArea');
 
     function updateAuthUI(data) {
         var authEl = document.getElementById('authStatus');
         if (data.authorized) {
-            authEl.innerHTML = '<span class="status-tag status-valid">Authorized</span>';
+            authEl.innerHTML = '<span class="status-tag status-valid">' + t('dash.authorized') + '</span>';
             document.getElementById('statusDot').className = 'status-indicator online';
         } else {
-            authEl.innerHTML = '<span class="status-tag status-error">Not Authorized</span>';
+            authEl.innerHTML = '<span class="status-tag status-error">' + t('dash.not_authorized') + '</span>';
             document.getElementById('statusDot').className = 'status-indicator offline';
         }
         document.getElementById('licenseType').textContent = data.license_type || '--';
-        document.getElementById('expireAt').textContent = data.expire_at || 'Permanent';
+        document.getElementById('expireAt').textContent = data.expire_at || t('dash.permanent');
         if (data.machine_code) document.getElementById('machineCode').textContent = data.machine_code;
         if (data.last_verify_time) document.getElementById('lastVerify').textContent = data.last_verify_time;
     }
@@ -73,13 +75,11 @@
 
     function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 
-    // Initial state
-    fetch('/api/state').then(r=>r.json()).then(function(s) {
+    fetch('/api/state').then(function(r){return r.json()}).then(function(s) {
         updateAuthUI(s);
         updateClientsUI(s.clients || []);
     });
 
-    // WebSocket
     connectWS(function(event) {
         switch (event.type) {
             case 'InitialState':

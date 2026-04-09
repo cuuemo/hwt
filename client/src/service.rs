@@ -160,6 +160,7 @@ mod win {
 
             let (event_tx, _) =
                 tokio::sync::broadcast::channel::<crate::web::ClientEvent>(256);
+            crate::web::init_logger(event_tx.clone());
             let state = std::sync::Arc::new(crate::web::ClientState::new(event_tx));
 
             // Spawn web UI server

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
@@ -7,33 +7,35 @@
     <link rel="stylesheet" href="/assets/style.css"/>
 </head>
 <body>
+<button class="lang-btn" onclick="toggleLang()" data-i18n="lang.toggle"></button>
 <div class="container client-page">
     <div class="header">
-        <h1>HWT Client</h1>
+        <h1 data-i18n="client.title">HWT Client</h1>
         <div class="system-status">
             <span class="status-indicator" id="statusDot"></span>
-            <span id="statusText">Initializing</span>
+            <span id="statusText" data-i18n="client.initializing">Initializing</span>
             <span id="currentTime"></span>
         </div>
     </div>
 
     <div class="card status-card">
-        <h3>Status</h3>
+        <h3 data-i18n="client.status_heading">Status</h3>
         <table>
-            <tr><td>Connection</td><td id="connStatus"><span class="status-tag status-pending">Searching</span></td></tr>
-            <tr><td>Authorization</td><td id="authStatus"><span class="status-tag status-pending">Pending</span></td></tr>
-            <tr><td>Cleanup</td><td id="cleanupStatus">--</td></tr>
-            <tr><td>Heartbeat</td><td id="heartbeatStatus">--</td></tr>
+            <tr><td data-i18n="client.connection">Connection</td><td id="connStatus"><span class="status-tag status-pending" data-i18n="client.searching">Searching</span></td></tr>
+            <tr><td data-i18n="client.authorization">Authorization</td><td id="authStatus"><span class="status-tag status-pending" data-i18n="client.pending">Pending</span></td></tr>
+            <tr><td data-i18n="client.cleanup">Cleanup</td><td id="cleanupStatus">--</td></tr>
+            <tr><td data-i18n="client.heartbeat">Heartbeat</td><td id="heartbeatStatus">--</td></tr>
         </table>
     </div>
 
     <div class="card log-card">
-        <h3>Log</h3>
-        <div class="log-area empty" id="logArea" data-empty="Waiting for events..."></div>
+        <h3 data-i18n="client.log_heading">Log</h3>
+        <div class="log-area empty" id="logArea" data-i18n-empty="client.no_logs" data-empty="Waiting for events..."></div>
     </div>
 </div>
 <script src="/assets/common.js"></script>
 <script>
+    applyI18n();
     var logArea = document.getElementById('logArea');
 
     function setTag(elId, text, cls) {
@@ -51,23 +53,23 @@
                     if (conn.indexOf('connected') >= 0) {
                         setTag('connStatus', conn, 'status-valid');
                         document.getElementById('statusDot').className = 'status-indicator online';
-                        document.getElementById('statusText').textContent = 'Connected';
+                        document.getElementById('statusText').textContent = t('client.connected');
                     } else if (conn === 'searching') {
-                        setTag('connStatus', 'Searching...', 'status-pending');
+                        setTag('connStatus', t('client.searching'), 'status-pending');
                         document.getElementById('statusDot').className = 'status-indicator offline';
-                        document.getElementById('statusText').textContent = 'Searching';
+                        document.getElementById('statusText').textContent = t('client.searching');
                     } else {
                         setTag('connStatus', conn, 'status-error');
                         document.getElementById('statusDot').className = 'status-indicator offline';
-                        document.getElementById('statusText').textContent = 'Disconnected';
+                        document.getElementById('statusText').textContent = t('client.disconnected');
                     }
                 }
                 if (event.auth) {
                     var auth = event.auth;
                     if (auth === 'authorized') {
-                        setTag('authStatus', 'Authorized', 'status-valid');
+                        setTag('authStatus', t('dash.authorized'), 'status-valid');
                     } else if (auth === 'pending') {
-                        setTag('authStatus', 'Pending', 'status-pending');
+                        setTag('authStatus', t('client.pending'), 'status-pending');
                     } else {
                         setTag('authStatus', auth, 'status-error');
                     }
@@ -88,8 +90,7 @@
         }
     }
 
-    // Initial state
-    fetch('/api/state').then(r=>r.json()).then(handleEvent).catch(function(){});
+    fetch('/api/state').then(function(r){return r.json()}).then(handleEvent).catch(function(){});
 
     connectWS(handleEvent);
     updateCurrentTime(document.getElementById('currentTime'));

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
@@ -7,37 +7,38 @@
     <link rel="stylesheet" href="/assets/style.css"/>
 </head>
 <body>
+<button class="lang-btn" onclick="toggleLang()" data-i18n="lang.toggle"></button>
 <div class="container login-page">
     <div class="header">
-        <h1>Net Admin Server</h1>
+        <h1 data-i18n="login.title">Net Admin Server</h1>
         <div class="system-status"><span>V1.0</span></div>
     </div>
     <div class="card form-card">
-        <h3>Login</h3>
+        <h3 data-i18n="login.heading">Login</h3>
         <div class="machine-code" id="machineCode">loading...</div>
         <div class="form-group">
-            <label>Account</label>
-            <input type="text" id="username" placeholder="Enter account" autocomplete="username"/>
+            <label data-i18n="login.account">Account</label>
+            <input type="text" id="username" data-i18n-ph="login.ph_account" placeholder="Enter account" autocomplete="username"/>
         </div>
         <div class="form-group">
-            <label>Password</label>
-            <input type="password" id="password" placeholder="Enter password" autocomplete="current-password"/>
+            <label data-i18n="login.password">Password</label>
+            <input type="password" id="password" data-i18n-ph="login.ph_password" placeholder="Enter password" autocomplete="current-password"/>
         </div>
         <div class="form-error" id="error"></div>
-        <button id="loginBtn" onclick="doLogin()">Login</button>
-        <div class="form-link"><a href="/register">No account? Register now</a></div>
+        <button id="loginBtn" onclick="doLogin()" data-i18n="login.btn">Login</button>
+        <div class="form-link"><a href="/register" data-i18n="login.no_account">No account? Register now</a></div>
     </div>
 </div>
 <div class="loading-overlay" id="loading"><div class="loader"></div></div>
 <script src="/assets/common.js"></script>
 <script>
-    // Load machine code
-    fetch('/api/state').then(r=>r.json()).then(function(s) {
+    applyI18n();
+
+    fetch('/api/state').then(function(r){return r.json()}).then(function(s) {
         var mc = s.machine_code || '';
         document.getElementById('machineCode').textContent = mc.length > 32 ? mc.substring(0,32) + '...' : mc;
     }).catch(function(){});
 
-    // Listen for login result via WebSocket
     var ws = connectWS(function(event) {
         if (event.type === 'LoginResult') {
             showLoading(false);
@@ -69,12 +70,11 @@
             showLoading(false);
             document.getElementById('loginBtn').disabled = false;
             var err = document.getElementById('error');
-            err.textContent = 'Network error';
+            err.textContent = t('login.network_error');
             err.classList.add('show');
         });
     }
 
-    // Enter key submits
     document.getElementById('password').addEventListener('keydown', function(e) {
         if (e.key === 'Enter') doLogin();
     });

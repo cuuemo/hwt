@@ -494,6 +494,37 @@ button:active:not(:disabled) { transform: translateY(0); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* Language toggle button */
+.lang-btn {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: rgba(15, 23, 42, 0.85);
+    border: 1px solid rgba(33, 89, 255, 0.4);
+    color: #60a5fa;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    z-index: 100;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 0 20px rgba(33, 89, 255, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 0;
+    width: 42px;
+    min-width: 42px;
+}
+
+.lang-btn:hover:not(:disabled) {
+    background: rgba(33, 89, 255, 0.3);
+    transform: none;
+    box-shadow: 0 0 30px rgba(33, 89, 255, 0.4);
+}
+
 /* Responsive */
 @media (max-width: 992px) {
     .container.dashboard {

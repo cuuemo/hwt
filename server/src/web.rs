@@ -10,8 +10,49 @@ use axum::Json;
 use axum::Router;
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
+
+// ─── Log bridge: captures Rust log output → broadcast channel ─────
+
+static LOG_TX: OnceLock<broadcast::Sender<ServerEvent>> = OnceLock::new();
+
+struct WebLogger;
+
+impl log::Log for WebLogger {
+    fn enabled(&self, metadata: &log::Metadata) -> bool {
+        metadata.level() <= log::Level::Info
+    }
+
+    fn log(&self, record: &log::Record) {
+        if !self.enabled(record.metadata()) {
+            return;
+        }
+        let level = match record.level() {
+            log::Level::Error => "error",
+            log::Level::Warn => "warn",
+            log::Level::Info => "info",
+            log::Level::Debug | log::Level::Trace => "info",
+        };
+        // Print to stderr as well
+        eprintln!("[{}] {}: {}", chrono::Local::now().format("%H:%M:%S"), record.level(), record.args());
+        if let Some(tx) = LOG_TX.get() {
+            let _ = tx.send(ServerEvent::Log {
+                timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+                level: level.to_string(),
+                message: format!("{}", record.args()),
+            });
+        }
+    }
+
+    fn flush(&self) {}
+}
+
+pub fn init_logger(event_tx: broadcast::Sender<ServerEvent>) {
+    let _ = LOG_TX.set(event_tx);
+    log::set_logger(&WebLogger).unwrap_or(());
+    log::set_max_level(log::LevelFilter::Info);
+}
 
 // ─── Embedded assets ───────────────────────────────────────────────
 const LOGIN_HTML: &str = include_str!("assets/login.html");
@@ -287,7 +328,11 @@ pub async fn background_loop(
     state: Arc<AppState>,
     mut cmd_rx: mpsc::Receiver<AuthCommand>,
 ) {
-    let http_client = reqwest::Client::new();
+    let http_client = reqwest::Client::builder()
+        .connect_timeout(std::time::Duration::from_secs(10))
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
     let cloud_base_url = String::new();
 
     // Load machine code
@@ -323,9 +368,27 @@ pub async fn background_loop(
 
         match cmd {
             AuthCommand::Register { username, password } => {
-                match auth::cloud_register(&http_client, &cloud_base_url, &username, &password)
-                    .await
-                {
+                let mut result = Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    "not attempted",
+                ));
+                for attempt in 0..3u32 {
+                    if attempt > 0 {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        broadcast_log(&state.event_tx, "info", &format!("Retry register ({}/3)...", attempt + 1));
+                    }
+                    result = auth::cloud_register(
+                        &http_client,
+                        &cloud_base_url,
+                        &username,
+                        &password,
+                    )
+                    .await;
+                    if result.is_ok() {
+                        break;
+                    }
+                }
+                match result {
                     Ok(msg) => {
                         let _ = state.event_tx.send(ServerEvent::RegisterResult {
                             success: true,
@@ -360,94 +423,119 @@ pub async fn background_loop(
                     }
                 };
 
-                broadcast_log(&state.event_tx, "info", "正在连接云端...");
+                broadcast_log(&state.event_tx, "info", "Connecting to cloud...");
 
-                match auth::cloud_handshake(&http_client, &cloud_base_url).await {
-                    Ok((sid, skey)) => {
-                        match auth::cloud_verify(
-                            &http_client,
-                            &cloud_base_url,
-                            &sid,
-                            &skey,
-                            &username,
-                            &password,
-                            &machine_code,
-                        )
-                        .await
-                        {
-                            Ok(resp) => {
-                                if resp.authorized {
-                                    state.authorized.store(true, Ordering::Relaxed);
-                                    state.logged_in.store(true, Ordering::Relaxed);
-                                    *state.license_type.write().await = resp.license_type.clone();
-                                    *state.expire_at.write().await = resp.expire_at.clone();
-                                    *state.last_verify_time.write().await = Some(
-                                        chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
-                                    );
+                // Retry handshake + verify up to 3 times
+                let mut login_ok = false;
+                for attempt in 0..3u32 {
+                    if attempt > 0 {
+                        tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                        broadcast_log(&state.event_tx, "info", &format!("Retry login ({}/3)...", attempt + 1));
+                    }
+                    match auth::cloud_handshake(&http_client, &cloud_base_url).await {
+                        Ok((sid, skey)) => {
+                            match auth::cloud_verify(
+                                &http_client,
+                                &cloud_base_url,
+                                &sid,
+                                &skey,
+                                &username,
+                                &password,
+                                &machine_code,
+                            )
+                            .await
+                            {
+                                Ok(resp) => {
+                                    if resp.authorized {
+                                        state.authorized.store(true, Ordering::Relaxed);
+                                        state.logged_in.store(true, Ordering::Relaxed);
+                                        *state.license_type.write().await =
+                                            resp.license_type.clone();
+                                        *state.expire_at.write().await = resp.expire_at.clone();
+                                        *state.last_verify_time.write().await = Some(
+                                            chrono::Local::now()
+                                                .format("%Y-%m-%d %H:%M")
+                                                .to_string(),
+                                        );
 
-                                    _session_id = Some(sid);
-                                    _session_key = Some(skey);
-                                    saved_account = Some(username);
-                                    saved_password = Some(password);
+                                        _session_id = Some(sid);
+                                        _session_key = Some(skey);
+                                        saved_account = Some(username.clone());
+                                        saved_password = Some(password.clone());
 
-                                    let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                        success: true,
-                                        message: resp.message.clone(),
-                                    });
-                                    broadcast_log(&state.event_tx, "success", &resp.message);
+                                        let _ = state.event_tx.send(ServerEvent::LoginResult {
+                                            success: true,
+                                            message: resp.message.clone(),
+                                        });
+                                        broadcast_log(
+                                            &state.event_tx,
+                                            "success",
+                                            &resp.message,
+                                        );
 
-                                    // Broadcast auth status
-                                    let _ =
-                                        state.event_tx.send(ServerEvent::AuthStatusChanged {
-                                            authorized: true,
-                                            license_type: resp.license_type,
-                                            expire_at: resp.expire_at,
-                                            machine_code: machine_code.clone(),
-                                            last_verify_time: state
-                                                .last_verify_time
-                                                .read()
-                                                .await
-                                                .clone(),
+                                        let _ = state.event_tx.send(
+                                            ServerEvent::AuthStatusChanged {
+                                                authorized: true,
+                                                license_type: resp.license_type,
+                                                expire_at: resp.expire_at,
+                                                machine_code: machine_code.clone(),
+                                                last_verify_time: state
+                                                    .last_verify_time
+                                                    .read()
+                                                    .await
+                                                    .clone(),
+                                            },
+                                        );
+
+                                        // Start TCP listener
+                                        let auth_clone = state.authorized.clone();
+                                        let clients_clone = state.clients.clone();
+                                        let etx_clone = state.event_tx.clone();
+                                        tokio::spawn(async move {
+                                            if let Err(e) = listener::start_listener(
+                                                auth_clone,
+                                                clients_clone,
+                                                etx_clone,
+                                            )
+                                            .await
+                                            {
+                                                log::error!("Listener error: {}", e);
+                                            }
                                         });
 
-                                    // Start TCP listener
-                                    let auth_clone = state.authorized.clone();
-                                    let clients_clone = state.clients.clone();
-                                    let etx_clone = state.event_tx.clone();
-                                    tokio::spawn(async move {
-                                        if let Err(e) = listener::start_listener(
-                                            auth_clone,
-                                            clients_clone,
-                                            etx_clone,
-                                        )
-                                        .await
-                                        {
-                                            log::error!("Listener error: {}", e);
-                                        }
-                                    });
-
-                                    break; // Enter re-verify loop
-                                } else {
-                                    let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                        success: false,
-                                        message: resp.message,
-                                    });
+                                        login_ok = true;
+                                        break;
+                                    } else {
+                                        // Auth denied — not a network error, don't retry
+                                        let _ = state.event_tx.send(ServerEvent::LoginResult {
+                                            success: false,
+                                            message: resp.message,
+                                        });
+                                        break;
+                                    }
+                                }
+                                Err(e) => {
+                                    if attempt == 2 {
+                                        let _ = state.event_tx.send(ServerEvent::LoginResult {
+                                            success: false,
+                                            message: format!("Verify failed: {}", e),
+                                        });
+                                    }
                                 }
                             }
-                            Err(e) => {
+                        }
+                        Err(e) => {
+                            if attempt == 2 {
                                 let _ = state.event_tx.send(ServerEvent::LoginResult {
                                     success: false,
-                                    message: format!("验证失败: {}", e),
+                                    message: format!("Handshake failed: {}", e),
                                 });
                             }
                         }
                     }
-                    Err(e) => {
-                        let _ = state.event_tx.send(ServerEvent::LoginResult {
-                            success: false,
-                            message: format!("握手失败: {}", e),
-                        });
-                    }
+                }
+                if login_ok {
+                    break; // Enter re-verify loop
                 }
             }
         }

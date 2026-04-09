@@ -12,15 +12,20 @@ use tokio::sync::broadcast;
 use web::{ClientEvent, ClientState};
 
 fn main() {
-    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
-        .format_timestamp_secs()
-        .init();
-
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(|s| s.as_str()) {
-        Some("install") => service::install(),
-        Some("uninstall") => service::uninstall(),
-        Some("status") => service::status(),
+        Some("install") => {
+            init_env_logger();
+            service::install();
+        }
+        Some("uninstall") => {
+            init_env_logger();
+            service::uninstall();
+        }
+        Some("status") => {
+            init_env_logger();
+            service::status();
+        }
         Some("run") => run_foreground(),
         _ => {
             #[cfg(windows)]
@@ -30,12 +35,10 @@ fn main() {
                     Err(windows_service::Error::Winapi(err))
                         if err.raw_os_error() == Some(1063) =>
                     {
-                        log::warn!(
-                            "Service Control Manager unavailable, falling back to foreground mode"
-                        );
                         run_foreground();
                     }
                     Err(e) => {
+                        init_env_logger();
                         log::error!("Failed to start service mode: {}", e);
                         std::process::exit(1);
                     }
@@ -49,17 +52,25 @@ fn main() {
     }
 }
 
+fn init_env_logger() {
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
+        .format_timestamp_secs()
+        .init();
+}
+
 /// Run the cleanup cycle in foreground mode (for debugging).
 fn run_foreground() {
-    log::info!("Starting hwt-client in foreground mode");
-
     let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
     rt.block_on(async {
         let (event_tx, _) = broadcast::channel::<ClientEvent>(256);
+        web::init_logger(event_tx.clone());
+
         let state = Arc::new(ClientState::new(event_tx));
 
         // Spawn web UI server
         tokio::spawn(web::start_web_server(state.clone()));
+
+        log::info!("Starting hwt-client in foreground mode");
 
         loop {
             match protocol::run_cleanup_cycle(state.clone()).await {
