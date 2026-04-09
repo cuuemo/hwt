@@ -9,7 +9,7 @@ HWT (网维系统) is an internet cafe management system with three components:
 - **Cloud backend** (`cloud/backend/`): Python FastAPI service for auth, licensing, and machine binding
 - **Admin frontend** (`cloud/frontend/`): Vue 3 + TypeScript + Element Plus dashboard
 
-Architecture: Client (Windows Service) → Server (egui GUI, TCP 19800) → Cloud (HTTPS API). Clients auto-discover the server via LAN scan, authenticate through RSA+AES encrypted channels, and perform device cleanup. The server authenticates with the cloud using RSA handshake + AES session keys.
+Architecture: Client (Windows Service) → Server (silent background + Web UI) → Cloud (HTTPS API). Both server and client run silently and are controlled via embedded web UIs (axum + WebSocket). Clients auto-discover the server via LAN scan on TCP 19800, authenticate through RSA+AES encrypted channels, and perform device cleanup. The server authenticates with the cloud using RSA handshake + AES session keys.
 
 ## Build & Development Commands
 
@@ -41,6 +41,9 @@ The `CLOUD_BASE_URL` env var controls which cloud endpoint the server binary con
 - Vue: `PascalCase.vue` for views/layouts, API helpers under `src/api/`
 
 ## Architecture Details
+
+### Web UI (axum)
+Both server and client embed an axum web server with WebSocket support. HTML/CSS/JS assets are compiled into the binary via `include_str!()`. The server web UI on port 19880 has cookie-based session auth (`hwt_session`, HttpOnly). The client web UI on port 19881 is unauthenticated (status-only, no sensitive data). Both support EN/CN language toggle (persisted in localStorage). Rust `log` output is bridged to the broadcast channel and appears in the web UI log area.
 
 ### Crypto Protocol
 `protocol/` crate provides shared crypto (RSA OAEP-SHA256 + AES-256-GCM) and TCP frame encoding used by both client and server. The cloud backend implements the same protocol in Python (`cloud/backend/app/crypto.py`).

@@ -3,8 +3,8 @@
 ## Project Structure & Module Organization
 This repository combines a Rust workspace, a Python cloud backend, and a Vue admin frontend.
 
-- `client/`: Windows service client (`hwt-client`) that scans the LAN, authenticates, and performs cleanup.
-- `server/`: Windows GUI server (`hwt-server`) built with `egui`/`eframe`.
+- `client/`: Windows service client (`hwt-client`) that scans the LAN, authenticates, and performs cleanup. Embeds a web UI on port 19881 (axum + WebSocket).
+- `server/`: Windows server (`hwt-server`) running silently with embedded web UI on port 19880 (axum + WebSocket, cookie-based session auth).
 - `protocol/`: shared Rust protocol and crypto primitives used by client and server.
 - `cloud/backend/`: FastAPI service, static admin assets, Docker files, and pytest suite in `cloud/backend/tests/`.
 - `cloud/frontend/`: Vite + Vue 3 + TypeScript admin UI.
