@@ -3,7 +3,7 @@ use crate::listener::{self, ClientInfo};
 use crate::machine;
 use axum::extract::ws::{Message as WsMessage, WebSocket, WebSocketUpgrade};
 use axum::extract::State;
-use axum::http::header;
+use axum::http::{header, HeaderMap};
 use axum::response::{Html, IntoResponse, Redirect};
 use axum::routing::{get, post};
 use axum::Json;
@@ -31,11 +31,14 @@ impl log::Log for WebLogger {
         let level = match record.level() {
             log::Level::Error => "error",
             log::Level::Warn => "warn",
-            log::Level::Info => "info",
-            log::Level::Debug | log::Level::Trace => "info",
+            log::Level::Info | log::Level::Debug | log::Level::Trace => "info",
         };
-        // Print to stderr as well
-        eprintln!("[{}] {}: {}", chrono::Local::now().format("%H:%M:%S"), record.level(), record.args());
+        eprintln!(
+            "[{}] {}: {}",
+            chrono::Local::now().format("%H:%M:%S"),
+            record.level(),
+            record.args()
+        );
         if let Some(tx) = LOG_TX.get() {
             let _ = tx.send(ServerEvent::Log {
                 timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
@@ -64,8 +67,22 @@ const COMMON_JS: &str = include_str!("assets/common.js");
 // ─── Commands & Events ────────────────────────────────────────────
 
 pub enum AuthCommand {
-    Login { username: String, password: String },
-    Register { username: String, password: String },
+    Login {
+        username: String,
+        password: String,
+        reply: tokio::sync::oneshot::Sender<AuthReply>,
+    },
+    Register {
+        username: String,
+        password: String,
+        reply: tokio::sync::oneshot::Sender<AuthReply>,
+    },
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AuthReply {
+    pub success: bool,
+    pub message: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -84,14 +101,6 @@ pub enum ServerEvent {
     Log {
         timestamp: String,
         level: String,
-        message: String,
-    },
-    LoginResult {
-        success: bool,
-        message: String,
-    },
-    RegisterResult {
-        success: bool,
         message: String,
     },
 }
@@ -125,6 +134,8 @@ pub struct AppState {
     pub clients: Arc<Mutex<Vec<ClientInfo>>>,
     pub event_tx: broadcast::Sender<ServerEvent>,
     pub cmd_tx: mpsc::Sender<AuthCommand>,
+    /// Session token set after successful login; checked on protected routes.
+    pub session_token: Arc<RwLock<Option<String>>>,
 }
 
 impl AppState {
@@ -158,6 +169,44 @@ struct StateSnapshot {
     clients: Vec<ClientInfoDto>,
 }
 
+// ─── Session helpers ──────────────────────────────────────────────
+
+fn extract_session_cookie(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(header::COOKIE)?
+        .to_str()
+        .ok()?
+        .split(';')
+        .find_map(|pair| {
+            let pair = pair.trim();
+            if let Some(val) = pair.strip_prefix("hwt_session=") {
+                Some(val.to_string())
+            } else {
+                None
+            }
+        })
+}
+
+async fn check_session(state: &AppState, headers: &HeaderMap) -> bool {
+    let token = state.session_token.read().await;
+    match (&*token, extract_session_cookie(headers)) {
+        (Some(expected), Some(got)) => expected == &got,
+        _ => false,
+    }
+}
+
+fn set_session_cookie(token: &str) -> String {
+    format!("hwt_session={}; Path=/; HttpOnly; SameSite=Strict", token)
+}
+
+fn generate_session_token() -> String {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    (0..32)
+        .map(|_| format!("{:02x}", rng.gen::<u8>()))
+        .collect()
+}
+
 // ─── Router ───────────────────────────────────────────────────────
 
 pub fn build_router(state: Arc<AppState>) -> Router {
@@ -176,8 +225,11 @@ pub fn build_router(state: Arc<AppState>) -> Router {
 
 // ─── Page Handlers ────────────────────────────────────────────────
 
-async fn page_login(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if state.logged_in.load(Ordering::Relaxed) {
+async fn page_login(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if check_session(&state, &headers).await {
         return Redirect::to("/dashboard").into_response();
     }
     Html(LOGIN_HTML).into_response()
@@ -187,8 +239,11 @@ async fn page_register() -> Html<&'static str> {
     Html(REGISTER_HTML)
 }
 
-async fn page_dashboard(State(state): State<Arc<AppState>>) -> impl IntoResponse {
-    if !state.logged_in.load(Ordering::Relaxed) {
+async fn page_dashboard(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    if !check_session(&state, &headers).await {
         return Redirect::to("/").into_response();
     }
     Html(DASHBOARD_HTML).into_response()
@@ -216,15 +271,36 @@ struct LoginRequest {
 async fn api_login(
     State(state): State<Arc<AppState>>,
     Json(req): Json<LoginRequest>,
-) -> Json<serde_json::Value> {
+) -> impl IntoResponse {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     let _ = state
         .cmd_tx
         .send(AuthCommand::Login {
             username: req.username,
             password: req.password,
+            reply: reply_tx,
         })
         .await;
-    Json(serde_json::json!({"ok": true, "message": "processing"}))
+
+    match tokio::time::timeout(std::time::Duration::from_secs(60), reply_rx).await {
+        Ok(Ok(reply)) => {
+            if reply.success {
+                // Generate session token and set cookie
+                let token = generate_session_token();
+                *state.session_token.write().await = Some(token.clone());
+                (
+                    [(header::SET_COOKIE, set_session_cookie(&token))],
+                    Json(serde_json::json!({"ok": true, "message": reply.message})),
+                )
+                    .into_response()
+            } else {
+                Json(serde_json::json!({"ok": false, "message": reply.message})).into_response()
+            }
+        }
+        _ => {
+            Json(serde_json::json!({"ok": false, "message": "Login timeout"})).into_response()
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -236,19 +312,39 @@ struct RegisterRequest {
 async fn api_register(
     State(state): State<Arc<AppState>>,
     Json(req): Json<RegisterRequest>,
-) -> Json<serde_json::Value> {
+) -> impl IntoResponse {
+    let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
     let _ = state
         .cmd_tx
         .send(AuthCommand::Register {
             username: req.username,
             password: req.password,
+            reply: reply_tx,
         })
         .await;
-    Json(serde_json::json!({"ok": true, "message": "processing"}))
+
+    match tokio::time::timeout(std::time::Duration::from_secs(60), reply_rx).await {
+        Ok(Ok(reply)) => {
+            Json(serde_json::json!({"ok": reply.success, "message": reply.message}))
+        }
+        _ => Json(serde_json::json!({"ok": false, "message": "Register timeout"})),
+    }
 }
 
-async fn api_state(State(state): State<Arc<AppState>>) -> Json<StateSnapshot> {
-    Json(state.snapshot().await)
+async fn api_state(
+    State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
+) -> impl IntoResponse {
+    // Machine code is public (shown on login page), full state requires session
+    if check_session(&state, &headers).await {
+        Json(serde_json::to_value(state.snapshot().await).unwrap())
+    } else {
+        // Only return machine code for login page
+        Json(serde_json::json!({
+            "machine_code": *state.machine_code.read().await,
+            "logged_in": false,
+        }))
+    }
 }
 
 // ─── WebSocket ────────────────────────────────────────────────────
@@ -256,55 +352,68 @@ async fn api_state(State(state): State<Arc<AppState>>) -> Json<StateSnapshot> {
 async fn ws_upgrade(
     ws: WebSocketUpgrade,
     State(state): State<Arc<AppState>>,
+    headers: HeaderMap,
 ) -> impl IntoResponse {
-    ws.on_upgrade(|socket| handle_ws(socket, state))
+    let authed = check_session(&state, &headers).await;
+    ws.on_upgrade(move |socket| handle_ws(socket, state, authed))
 }
 
-async fn handle_ws(mut socket: WebSocket, state: Arc<AppState>) {
-    // Send initial state snapshot as a special event
-    let snap = state.snapshot().await;
-    let init = serde_json::json!({
-        "type": "InitialState",
-        "authorized": snap.authorized,
-        "logged_in": snap.logged_in,
-        "license_type": snap.license_type,
-        "expire_at": snap.expire_at,
-        "machine_code": snap.machine_code,
-        "last_verify_time": snap.last_verify_time,
-        "clients": snap.clients,
-    });
-    let _ = socket
-        .send(WsMessage::Text(serde_json::to_string(&init).unwrap().into()))
-        .await;
+async fn handle_ws(mut socket: WebSocket, state: Arc<AppState>, authed: bool) {
+    if authed {
+        // Send initial state snapshot
+        let snap = state.snapshot().await;
+        let init = serde_json::json!({
+            "type": "InitialState",
+            "authorized": snap.authorized,
+            "logged_in": snap.logged_in,
+            "license_type": snap.license_type,
+            "expire_at": snap.expire_at,
+            "machine_code": snap.machine_code,
+            "last_verify_time": snap.last_verify_time,
+            "clients": snap.clients,
+        });
+        let _ = socket
+            .send(WsMessage::Text(serde_json::to_string(&init).unwrap().into()))
+            .await;
+    }
 
     let mut rx = state.event_tx.subscribe();
     loop {
         match rx.recv().await {
             Ok(event) => {
+                // Unauthenticated WS only gets Log events (for login page feedback)
+                if !authed {
+                    if !matches!(event, ServerEvent::Log { .. }) {
+                        continue;
+                    }
+                }
                 let json = serde_json::to_string(&event).unwrap();
                 if socket.send(WsMessage::Text(json.into())).await.is_err() {
                     break;
                 }
             }
             Err(broadcast::error::RecvError::Lagged(_)) => {
-                // Missed events, send fresh snapshot
-                let snap = state.snapshot().await;
-                let refresh = serde_json::json!({
-                    "type": "InitialState",
-                    "authorized": snap.authorized,
-                    "logged_in": snap.logged_in,
-                    "license_type": snap.license_type,
-                    "expire_at": snap.expire_at,
-                    "machine_code": snap.machine_code,
-                    "last_verify_time": snap.last_verify_time,
-                    "clients": snap.clients,
-                });
-                if socket
-                    .send(WsMessage::Text(serde_json::to_string(&refresh).unwrap().into()))
-                    .await
-                    .is_err()
-                {
-                    break;
+                if authed {
+                    let snap = state.snapshot().await;
+                    let refresh = serde_json::json!({
+                        "type": "InitialState",
+                        "authorized": snap.authorized,
+                        "logged_in": snap.logged_in,
+                        "license_type": snap.license_type,
+                        "expire_at": snap.expire_at,
+                        "machine_code": snap.machine_code,
+                        "last_verify_time": snap.last_verify_time,
+                        "clients": snap.clients,
+                    });
+                    if socket
+                        .send(WsMessage::Text(
+                            serde_json::to_string(&refresh).unwrap().into(),
+                        ))
+                        .await
+                        .is_err()
+                    {
+                        break;
+                    }
                 }
             }
             Err(broadcast::error::RecvError::Closed) => break,
@@ -324,36 +433,32 @@ pub fn broadcast_log(event_tx: &broadcast::Sender<ServerEvent>, level: &str, mes
 
 // ─── Background Loop ──────────────────────────────────────────────
 
-pub async fn background_loop(
-    state: Arc<AppState>,
-    mut cmd_rx: mpsc::Receiver<AuthCommand>,
-) {
+pub async fn background_loop(state: Arc<AppState>, mut cmd_rx: mpsc::Receiver<AuthCommand>) {
     let http_client = reqwest::Client::builder()
         .connect_timeout(std::time::Duration::from_secs(10))
         .timeout(std::time::Duration::from_secs(30))
         .build()
         .unwrap_or_else(|_| reqwest::Client::new());
+    // Empty string makes auth.rs use DEFAULT_CLOUD_BASE_URL (compile-time CLOUD_BASE_URL env)
     let cloud_base_url = String::new();
 
     // Load machine code
     let saved_machine_code = match machine::get_machine_code() {
         Ok(mc) => {
             *state.machine_code.write().await = mc.clone();
-            broadcast_log(&state.event_tx, "info", &format!("机器码: {}", mc));
+            broadcast_log(&state.event_tx, "info", &format!("Machine code: {}", mc));
             Some(mc)
         }
         Err(e) => {
             broadcast_log(
                 &state.event_tx,
                 "error",
-                &format!("机器码读取失败: {}", e),
+                &format!("Machine code read failed: {}", e),
             );
             None
         }
     };
 
-    let mut _session_id: Option<String> = None;
-    let mut _session_key: Option<[u8; 32]> = None;
     #[allow(unused_assignments)]
     let mut saved_account: Option<String> = None;
     #[allow(unused_assignments)]
@@ -363,11 +468,15 @@ pub async fn background_loop(
     // Command loop: wait for login/register commands from web UI
     loop {
         let Some(cmd) = cmd_rx.recv().await else {
-            return; // channel closed
+            return;
         };
 
         match cmd {
-            AuthCommand::Register { username, password } => {
+            AuthCommand::Register {
+                username,
+                password,
+                reply,
+            } => {
                 let mut result = Err(std::io::Error::new(
                     std::io::ErrorKind::Other,
                     "not attempted",
@@ -375,7 +484,11 @@ pub async fn background_loop(
                 for attempt in 0..3u32 {
                     if attempt > 0 {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        broadcast_log(&state.event_tx, "info", &format!("Retry register ({}/3)...", attempt + 1));
+                        broadcast_log(
+                            &state.event_tx,
+                            "info",
+                            &format!("Retry register ({}/3)...", attempt + 1),
+                        );
                     }
                     result = auth::cloud_register(
                         &http_client,
@@ -388,22 +501,23 @@ pub async fn background_loop(
                         break;
                     }
                 }
-                match result {
-                    Ok(msg) => {
-                        let _ = state.event_tx.send(ServerEvent::RegisterResult {
-                            success: true,
-                            message: msg,
-                        });
-                    }
-                    Err(e) => {
-                        let _ = state.event_tx.send(ServerEvent::RegisterResult {
-                            success: false,
-                            message: e.to_string(),
-                        });
-                    }
-                }
+                let _ = reply.send(match result {
+                    Ok(msg) => AuthReply {
+                        success: true,
+                        message: msg,
+                    },
+                    Err(e) => AuthReply {
+                        success: false,
+                        message: e.to_string(),
+                    },
+                });
             }
-            AuthCommand::Login { username, password } => {
+            AuthCommand::Login {
+                username,
+                password,
+                reply,
+            } => {
+                let mut reply = Some(reply);
                 let machine_code = if let Some(mc) = saved_mc.clone() {
                     mc
                 } else {
@@ -414,10 +528,12 @@ pub async fn background_loop(
                             mc
                         }
                         Err(e) => {
-                            let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                success: false,
-                                message: format!("机器码读取失败: {}", e),
-                            });
+                            if let Some(r) = reply.take() {
+                                let _ = r.send(AuthReply {
+                                    success: false,
+                                    message: format!("Machine code read failed: {}", e),
+                                });
+                            }
                             continue;
                         }
                     }
@@ -425,12 +541,16 @@ pub async fn background_loop(
 
                 broadcast_log(&state.event_tx, "info", "Connecting to cloud...");
 
-                // Retry handshake + verify up to 3 times
                 let mut login_ok = false;
+                let mut last_err = String::new();
                 for attempt in 0..3u32 {
                     if attempt > 0 {
                         tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-                        broadcast_log(&state.event_tx, "info", &format!("Retry login ({}/3)...", attempt + 1));
+                        broadcast_log(
+                            &state.event_tx,
+                            "info",
+                            &format!("Retry login ({}/3)...", attempt + 1),
+                        );
                     }
                     match auth::cloud_handshake(&http_client, &cloud_base_url).await {
                         Ok((sid, skey)) => {
@@ -458,15 +578,15 @@ pub async fn background_loop(
                                                 .to_string(),
                                         );
 
-                                        _session_id = Some(sid);
-                                        _session_key = Some(skey);
                                         saved_account = Some(username.clone());
                                         saved_password = Some(password.clone());
 
-                                        let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                            success: true,
-                                            message: resp.message.clone(),
-                                        });
+                                        if let Some(r) = reply.take() {
+                                            let _ = r.send(AuthReply {
+                                                success: true,
+                                                message: resp.message.clone(),
+                                            });
+                                        }
                                         broadcast_log(
                                             &state.event_tx,
                                             "success",
@@ -507,31 +627,31 @@ pub async fn background_loop(
                                         break;
                                     } else {
                                         // Auth denied — not a network error, don't retry
-                                        let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                            success: false,
-                                            message: resp.message,
-                                        });
+                                        if let Some(r) = reply.take() {
+                                            let _ = r.send(AuthReply {
+                                                success: false,
+                                                message: resp.message,
+                                            });
+                                        }
                                         break;
                                     }
                                 }
                                 Err(e) => {
-                                    if attempt == 2 {
-                                        let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                            success: false,
-                                            message: format!("Verify failed: {}", e),
-                                        });
-                                    }
+                                    last_err = format!("Verify failed: {}", e);
                                 }
                             }
                         }
                         Err(e) => {
-                            if attempt == 2 {
-                                let _ = state.event_tx.send(ServerEvent::LoginResult {
-                                    success: false,
-                                    message: format!("Handshake failed: {}", e),
-                                });
-                            }
+                            last_err = format!("Handshake failed: {}", e);
                         }
+                    }
+                }
+                if !login_ok && !last_err.is_empty() {
+                    if let Some(r) = reply.take() {
+                        let _ = r.send(AuthReply {
+                            success: false,
+                            message: last_err,
+                        });
                     }
                 }
                 if login_ok {
@@ -551,7 +671,7 @@ pub async fn background_loop(
         if let (Some(ref acct), Some(ref pwd), Some(ref mc)) =
             (&saved_account, &saved_password, &saved_mc)
         {
-            broadcast_log(&state.event_tx, "info", "正在重新验证...");
+            broadcast_log(&state.event_tx, "info", "Re-verifying...");
             match auth::cloud_handshake(&http_client, &cloud_base_url).await {
                 Ok((new_sid, new_skey)) => {
                     match auth::cloud_verify(
@@ -573,22 +693,24 @@ pub async fn background_loop(
                                 *state.last_verify_time.write().await = Some(
                                     chrono::Local::now().format("%Y-%m-%d %H:%M").to_string(),
                                 );
-                                _session_id = Some(new_sid);
-                                _session_key = Some(new_skey);
-                                broadcast_log(&state.event_tx, "success", "重新验证成功");
+                                broadcast_log(&state.event_tx, "success", "Re-verification OK");
                                 let _ = state.event_tx.send(ServerEvent::AuthStatusChanged {
                                     authorized: true,
                                     license_type: resp.license_type,
                                     expire_at: resp.expire_at,
                                     machine_code: mc.clone(),
-                                    last_verify_time: state.last_verify_time.read().await.clone(),
+                                    last_verify_time: state
+                                        .last_verify_time
+                                        .read()
+                                        .await
+                                        .clone(),
                                 });
                             } else {
                                 state.authorized.store(false, Ordering::Relaxed);
                                 broadcast_log(
                                     &state.event_tx,
                                     "error",
-                                    &format!("重新验证失败: {}", resp.message),
+                                    &format!("Re-verify denied: {}", resp.message),
                                 );
                             }
                         }
@@ -597,7 +719,7 @@ pub async fn background_loop(
                             broadcast_log(
                                 &state.event_tx,
                                 "error",
-                                &format!("重新验证错误: {}", e),
+                                &format!("Re-verify error: {}", e),
                             );
                         }
                     }
@@ -607,7 +729,7 @@ pub async fn background_loop(
                     broadcast_log(
                         &state.event_tx,
                         "error",
-                        &format!("重新握手失败: {}", e),
+                        &format!("Re-handshake failed: {}", e),
                     );
                 }
             }

@@ -199,7 +199,23 @@ async fn handle_ws(mut socket: WebSocket, state: Arc<ClientState>) {
                     break;
                 }
             }
-            Err(broadcast::error::RecvError::Lagged(_)) => continue,
+            Err(broadcast::error::RecvError::Lagged(_)) => {
+                // Re-send fresh state snapshot
+                let snap = StateSnapshot {
+                    event_type: "InitialState",
+                    connection: state.connection.read().await.clone(),
+                    auth: state.auth.read().await.clone(),
+                    heartbeat: state.heartbeat.read().await.clone(),
+                    cleanup: state.cleanup_info.read().await.clone(),
+                };
+                if socket
+                    .send(WsMessage::Text(serde_json::to_string(&snap).unwrap().into()))
+                    .await
+                    .is_err()
+                {
+                    break;
+                }
+            }
             Err(broadcast::error::RecvError::Closed) => break,
         }
     }

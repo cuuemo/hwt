@@ -38,24 +38,6 @@
 <script>
     applyI18n();
 
-    var ws = connectWS(function(event) {
-        if (event.type === 'RegisterResult') {
-            showLoading(false);
-            document.getElementById('regBtn').disabled = false;
-            if (event.success) {
-                document.getElementById('error').classList.remove('show');
-                var s = document.getElementById('success');
-                s.textContent = event.message;
-                s.classList.add('show');
-            } else {
-                document.getElementById('success').classList.remove('show');
-                var err = document.getElementById('error');
-                err.textContent = event.message;
-                err.classList.add('show');
-            }
-        }
-    });
-
     function doRegister() {
         var username = document.getElementById('username').value.trim();
         var password = document.getElementById('password').value;
@@ -75,6 +57,19 @@
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({username: username, password: password})
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            showLoading(false);
+            document.getElementById('regBtn').disabled = false;
+            if (data.ok) {
+                document.getElementById('error').classList.remove('show');
+                var s = document.getElementById('success');
+                s.textContent = data.message;
+                s.classList.add('show');
+            } else {
+                document.getElementById('success').classList.remove('show');
+                err.textContent = data.message;
+                err.classList.add('show');
+            }
         }).catch(function() {
             showLoading(false);
             document.getElementById('regBtn').disabled = false;

@@ -49,13 +49,18 @@
 
     function updateAuthUI(data) {
         var authEl = document.getElementById('authStatus');
+        authEl.textContent = '';
+        var span = document.createElement('span');
         if (data.authorized) {
-            authEl.innerHTML = '<span class="status-tag status-valid">' + t('dash.authorized') + '</span>';
+            span.className = 'status-tag status-valid';
+            span.textContent = t('dash.authorized');
             document.getElementById('statusDot').className = 'status-indicator online';
         } else {
-            authEl.innerHTML = '<span class="status-tag status-error">' + t('dash.not_authorized') + '</span>';
+            span.className = 'status-tag status-error';
+            span.textContent = t('dash.not_authorized');
             document.getElementById('statusDot').className = 'status-indicator offline';
         }
+        authEl.appendChild(span);
         document.getElementById('licenseType').textContent = data.license_type || '--';
         document.getElementById('expireAt').textContent = data.expire_at || t('dash.permanent');
         if (data.machine_code) document.getElementById('machineCode').textContent = data.machine_code;

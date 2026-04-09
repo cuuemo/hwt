@@ -39,20 +39,6 @@
         document.getElementById('machineCode').textContent = mc.length > 32 ? mc.substring(0,32) + '...' : mc;
     }).catch(function(){});
 
-    var ws = connectWS(function(event) {
-        if (event.type === 'LoginResult') {
-            showLoading(false);
-            document.getElementById('loginBtn').disabled = false;
-            if (event.success) {
-                location.href = '/dashboard';
-            } else {
-                var err = document.getElementById('error');
-                err.textContent = event.message;
-                err.classList.add('show');
-            }
-        }
-    });
-
     function doLogin() {
         var username = document.getElementById('username').value.trim();
         var password = document.getElementById('password').value;
@@ -66,6 +52,16 @@
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({username: username, password: password})
+        }).then(function(r) { return r.json(); }).then(function(data) {
+            showLoading(false);
+            document.getElementById('loginBtn').disabled = false;
+            if (data.ok) {
+                location.href = '/dashboard';
+            } else {
+                var err = document.getElementById('error');
+                err.textContent = data.message;
+                err.classList.add('show');
+            }
         }).catch(function() {
             showLoading(false);
             document.getElementById('loginBtn').disabled = false;
