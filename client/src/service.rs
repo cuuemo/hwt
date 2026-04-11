@@ -168,8 +168,14 @@ mod win {
 
             loop {
                 match crate::protocol::run_cleanup_cycle(state.clone()).await {
-                    Ok(_) => log::info!("Cleanup cycle completed successfully"),
-                    Err(e) => log::error!("Cleanup cycle failed: {}", e),
+                    Ok(_) => {
+                        log::info!("Cleanup cycle completed successfully");
+                        crate::escalation::on_cycle_success(&state);
+                    }
+                    Err(e) => {
+                        log::error!("Cleanup cycle failed: {}", e);
+                        crate::escalation::on_cycle_failure(&state).await;
+                    }
                 }
 
                 // Reset status for next cycle

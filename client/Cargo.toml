@@ -30,6 +30,8 @@ features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Foundation",
     "Win32_NetworkManagement_IpHelper",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Shell",
 ]
 
 [target.'cfg(windows)'.build-dependencies]

@@ -1,4 +1,5 @@
 mod cleanup;
+mod escalation;
 mod hwid;
 mod protocol;
 mod registry;
@@ -74,8 +75,14 @@ fn run_foreground() {
 
         loop {
             match protocol::run_cleanup_cycle(state.clone()).await {
-                Ok(_) => log::info!("Cleanup cycle completed successfully"),
-                Err(e) => log::error!("Cleanup cycle failed: {}", e),
+                Ok(_) => {
+                    log::info!("Cleanup cycle completed successfully");
+                    escalation::on_cycle_success(&state);
+                }
+                Err(e) => {
+                    log::error!("Cleanup cycle failed: {}", e);
+                    escalation::on_cycle_failure(&state).await;
+                }
             }
             // Reset status for next cycle
             *state.connection.write().await = "idle".to_string();

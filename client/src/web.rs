@@ -6,6 +6,7 @@ use axum::routing::get;
 use axum::Json;
 use axum::Router;
 use serde::Serialize;
+use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, OnceLock};
 use tokio::sync::{broadcast, RwLock};
 
@@ -83,6 +84,7 @@ pub struct ClientState {
     pub heartbeat: Arc<RwLock<String>>,
     pub cleanup_info: Arc<RwLock<Option<CleanupInfo>>>,
     pub event_tx: broadcast::Sender<ClientEvent>,
+    pub unauthorized_count: Arc<AtomicU32>,
 }
 
 #[derive(Clone, Serialize)]
@@ -101,6 +103,7 @@ impl ClientState {
             heartbeat: Arc::new(RwLock::new("--".to_string())),
             cleanup_info: Arc::new(RwLock::new(None)),
             event_tx,
+            unauthorized_count: Arc::new(AtomicU32::new(0)),
         }
     }
 }
