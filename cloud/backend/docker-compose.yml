@@ -5,8 +5,10 @@ services:
     ports:
       - "10000:10000"
     volumes:
-      - ./data/keys:/app/keys:rw
+      - ./data:/app/data:rw
     environment:
+      - DATABASE_URL=sqlite:////app/data/hwt.db
+      - RSA_KEY_DIR=/app/data/keys
       - JWT_SECRET=bcfbfe417632f65d88ee2e74c983e3d7a34612c1cf5e9ca9a4d3626c166ad11e
       - DEFAULT_ADMIN_USERNAME=admin
       - DEFAULT_ADMIN_PASSWORD=S0Z72SyBtOriJVNr
