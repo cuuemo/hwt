@@ -51,7 +51,7 @@ DiskName: Win10_1909
 ## 二、注入方案
 
 ### 目标
-将 `hwt-client.exe` 内置到镜像中，使其：
+将 `at-client.exe` 内置到镜像中，使其：
 - 开机自动运行
 - 以 SYSTEM 权限运行（有权限操作 HKLM 注册表和 Setup API）
 - 不依赖用户登录
@@ -87,11 +87,11 @@ ls /mnt/winimg/Windows/System32/
 #### 步骤 3: 复制客户端 EXE
 ```bash
 # 复制到 Windows 系统目录（不会被普通用户删除）
-cp hwt-client.exe /mnt/winimg/Windows/System32/hwt-client.exe
+cp at-client.exe /mnt/winimg/Windows/System32/at-client.exe
 
 # 或者创建专用目录
-mkdir -p /mnt/winimg/HWT
-cp hwt-client.exe /mnt/winimg/HWT/hwt-client.exe
+mkdir -p /mnt/winimg/AT
+cp at-client.exe /mnt/winimg/AT/at-client.exe
 ```
 
 #### 步骤 4: 离线注册 Windows 服务（修改注册表）
@@ -113,10 +113,10 @@ chntpw -e /mnt/winimg/Windows/System32/config/SYSTEM
 cd ControlSet001\Services
 
 # 创建服务键
-nk HwtCleanupService
+nk AtCleanupService
 
 # 进入服务键
-cd HwtCleanupService
+cd AtCleanupService
 
 # 设置服务参数:
 # Type = 0x10 (SERVICE_WIN32_OWN_PROCESS)
@@ -133,12 +133,12 @@ ed ErrorControl
 
 # ImagePath = EXE 路径
 ed ImagePath
-# 输入: C:\Windows\System32\hwt-client.exe
-# 或: C:\HWT\hwt-client.exe
+# 输入: C:\Windows\System32\at-client.exe
+# 或: C:\AT\at-client.exe
 
 # DisplayName
 ed DisplayName
-# 输入: HWT Device Cleanup Service
+# 输入: AT Device Cleanup Service
 
 # ObjectName = LocalSystem (SYSTEM 权限)
 ed ObjectName
@@ -146,7 +146,7 @@ ed ObjectName
 
 # Description (可选)
 ed Description
-# 输入: HWT Network Maintenance Device Cleanup Service
+# 输入: AT Network Maintenance Device Cleanup Service
 
 # 保存退出
 q
@@ -172,8 +172,8 @@ root = h.root()
 cs1 = h.node_get_child(root, "ControlSet001")
 services = h.node_get_child(cs1, "Services")
 
-# 创建 HwtCleanupService 键
-svc = h.node_add_child(services, "HwtCleanupService")
+# 创建 AtCleanupService 键
+svc = h.node_add_child(services, "AtCleanupService")
 
 # 设置值
 # REG_DWORD = 4, REG_SZ = 1, REG_EXPAND_SZ = 2
@@ -200,7 +200,7 @@ h.node_set_value(svc, {
 })
 
 # ImagePath: EXE 路径 (REG_EXPAND_SZ, UTF-16LE 编码)
-exe_path = "C:\\Windows\\System32\\hwt-client.exe"
+exe_path = "C:\\Windows\\System32\\at-client.exe"
 h.node_set_value(svc, {
     "key": "ImagePath",
     "t": 2,  # REG_EXPAND_SZ
@@ -211,7 +211,7 @@ h.node_set_value(svc, {
 h.node_set_value(svc, {
     "key": "DisplayName",
     "t": 1,  # REG_SZ
-    "value": ("HWT Device Cleanup Service\0").encode("utf-16le")
+    "value": ("AT Device Cleanup Service\0").encode("utf-16le")
 })
 
 # ObjectName: LocalSystem
@@ -225,11 +225,11 @@ h.node_set_value(svc, {
 h.node_set_value(svc, {
     "key": "Description",
     "t": 1,
-    "value": ("HWT 网维设备清理服务\0").encode("utf-16le")
+    "value": ("AT 网维设备清理服务\0").encode("utf-16le")
 })
 
 h.commit(SYSTEM_HIVE)
-print("服务注册成功: HwtCleanupService")
+print("服务注册成功: AtCleanupService")
 PYEOF
 ```
 
@@ -270,12 +270,12 @@ cat sfx_header.bin Win10_1909_modified.7z > "SW_Win10_1909_modified.zip"
 2. 启动 Windows，以管理员身份打开 CMD
 3. 执行安装：
    ```cmd
-   copy hwt-client.exe C:\Windows\System32\
-   hwt-client.exe install
+   copy at-client.exe C:\Windows\System32\
+   at-client.exe install
    ```
 4. 验证服务已注册：
    ```cmd
-   sc query HwtCleanupService
+   sc query AtCleanupService
    ```
 5. 用网维系统重新采集/封装该机器的镜像
 6. 将新镜像替换旧镜像
@@ -291,10 +291,10 @@ cat sfx_header.bin Win10_1909_modified.7z > "SW_Win10_1909_modified.zip"
 
 #### 步骤
 1. 在网维服务器上"开超级"（关闭还原保护）
-2. 将 `hwt-client.exe` 复制到工作站的 `C:\Windows\System32\`
+2. 将 `at-client.exe` 复制到工作站的 `C:\Windows\System32\`
 3. 以管理员 CMD 运行：
    ```cmd
-   hwt-client.exe install
+   at-client.exe install
    ```
 4. "关闭超级"（重新开启还原保护）
 5. 此时服务已注册，重启后保留
@@ -305,18 +305,18 @@ cat sfx_header.bin Win10_1909_modified.7z > "SW_Win10_1909_modified.zip"
 :: 批量部署脚本 - 在网维超管模式下运行
 
 :: 复制 EXE
-if not exist "C:\Windows\System32\hwt-client.exe" (
-    copy /Y "\\网维服务器IP\share\hwt-client.exe" "C:\Windows\System32\hwt-client.exe"
+if not exist "C:\Windows\System32\at-client.exe" (
+    copy /Y "\\网维服务器IP\share\at-client.exe" "C:\Windows\System32\at-client.exe"
 )
 
 :: 检查服务是否已安装
-sc query HwtCleanupService >nul 2>&1
+sc query AtCleanupService >nul 2>&1
 if %errorlevel% neq 0 (
     :: 安装服务
-    "C:\Windows\System32\hwt-client.exe" install
-    echo [%date% %time%] 服务安装成功 >> C:\HWT\install.log
+    "C:\Windows\System32\at-client.exe" install
+    echo [%date% %time%] 服务安装成功 >> C:\AT\install.log
 ) else (
-    echo [%date% %time%] 服务已存在 >> C:\HWT\install.log
+    echo [%date% %time%] 服务已存在 >> C:\AT\install.log
 )
 ```
 
@@ -332,8 +332,8 @@ if %errorlevel% neq 0 (
 @echo off
 :: 创建开机运行的计划任务 (SYSTEM 权限)
 schtasks /Create ^
-    /TN "HWT\DeviceCleanup" ^
-    /TR "C:\Windows\System32\hwt-client.exe run" ^
+    /TN "AT\DeviceCleanup" ^
+    /TR "C:\Windows\System32\at-client.exe run" ^
     /SC ONSTART ^
     /RU "SYSTEM" ^
     /RL HIGHEST ^
@@ -387,7 +387,7 @@ echo 计划任务创建成功
 
 如果选择方案 D（计划任务替代 Windows Service），客户端的 `main.rs` 已支持 `run` 子命令直接前台运行：
 ```
-hwt-client.exe run    # 前台运行，不注册为服务
+at-client.exe run    # 前台运行，不注册为服务
 ```
 
 可以新增 `schedule` 子命令来注册计划任务：
@@ -396,7 +396,7 @@ hwt-client.exe run    # 前台运行，不注册为服务
 Some("schedule") => {
     // 调用 schtasks 命令注册计划任务
     std::process::Command::new("schtasks")
-        .args(&["/Create", "/TN", "HWT\\DeviceCleanup",
+        .args(&["/Create", "/TN", "AT\\DeviceCleanup",
                 "/TR", &format!("\"{}\" run", std::env::current_exe()?.display()),
                 "/SC", "ONSTART", "/RU", "SYSTEM", "/RL", "HIGHEST", "/F"])
         .status()?;

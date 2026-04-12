@@ -1,4 +1,4 @@
-// HWT Web UI - Shared JavaScript utilities
+// AT Web UI - Shared JavaScript utilities
 
 // ─── i18n ──────────────────────────────────────────────────────────
 var I18N = {
@@ -46,7 +46,7 @@ var I18N = {
         'dash.not_authorized': 'Not Authorized',
         'dash.permanent': 'Permanent',
         // Client
-        'client.title': 'HWT Client',
+        'client.title': 'AT Client',
         'client.initializing': 'Initializing',
         'client.connected': 'Connected',
         'client.searching': 'Searching',
@@ -64,6 +64,9 @@ var I18N = {
         'log.success': 'OK',
         'log.warn': 'WARN',
         'log.error': 'ERR',
+        // WS Status
+        'ws.connecting': 'Connecting...',
+        'ws.connected': 'Online',
         // Lang toggle
         'lang.toggle': 'CN'
     },
@@ -107,7 +110,7 @@ var I18N = {
         'dash.authorized': '\u5df2\u6388\u6743',
         'dash.not_authorized': '\u672a\u6388\u6743',
         'dash.permanent': '\u6c38\u4e45',
-        'client.title': 'HWT \u5ba2\u6237\u7aef',
+        'client.title': 'AT \u5ba2\u6237\u7aef',
         'client.initializing': '\u521d\u59cb\u5316',
         'client.connected': '\u5df2\u8fde\u63a5',
         'client.searching': '\u641c\u7d22\u4e2d',
@@ -124,11 +127,13 @@ var I18N = {
         'log.success': '\u6210\u529f',
         'log.warn': '\u8b66\u544a',
         'log.error': '\u9519\u8bef',
+        'ws.connecting': '\u8fde\u63a5\u4e2d...',
+        'ws.connected': '\u5728\u7ebf',
         'lang.toggle': 'EN'
     }
 };
 
-var currentLang = localStorage.getItem('hwt-lang') || 'en';
+var currentLang = localStorage.getItem('at-lang') || 'en';
 
 function t(key) {
     return (I18N[currentLang] && I18N[currentLang][key]) || (I18N.en[key]) || key;
@@ -148,23 +153,42 @@ function applyI18n() {
 
 function toggleLang() {
     currentLang = currentLang === 'en' ? 'zh' : 'en';
-    localStorage.setItem('hwt-lang', currentLang);
+    localStorage.setItem('at-lang', currentLang);
     applyI18n();
 }
 
 // ─── WebSocket ─────────────────────────────────────────────────────
 
+function updateWSStatus(connected) {
+    var el = document.getElementById('ws-status');
+    if (!el) return;
+    el.className = 'status-indicator ' + (connected ? 'online' : 'offline');
+    var textEl = document.getElementById('ws-status-text');
+    if (textEl) textEl.textContent = t(connected ? 'ws.connected' : 'ws.connecting');
+}
+
 function connectWS(onMessage) {
     var proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
     var url = proto + '//' + location.host + '/ws';
     var ws = new WebSocket(url);
+    
+    ws.onopen = function() {
+        updateWSStatus(true);
+    };
+    
     ws.onmessage = function(e) {
         try { onMessage(JSON.parse(e.data)); } catch(err) { console.error(err); }
     };
+    
     ws.onclose = function() {
+        updateWSStatus(false);
         setTimeout(function() { connectWS(onMessage); }, 3000);
     };
-    ws.onerror = function() { ws.close(); };
+    
+    ws.onerror = function() { 
+        ws.close(); 
+    };
+    
     return ws;
 }
 
@@ -194,7 +218,7 @@ function appendLog(container, timestamp, level, message) {
     line.appendChild(text);
     container.prepend(line);
 
-    while (container.children.length > 50) {
+    while (container.children.length > 100) {
         container.removeChild(container.lastElementChild);
     }
 }

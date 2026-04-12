@@ -179,7 +179,7 @@ fn extract_session_cookie(headers: &HeaderMap) -> Option<String> {
         .split(';')
         .find_map(|pair| {
             let pair = pair.trim();
-            if let Some(val) = pair.strip_prefix("hwt_session=") {
+            if let Some(val) = pair.strip_prefix("at_session=") {
                 Some(val.to_string())
             } else {
                 None
@@ -196,7 +196,7 @@ async fn check_session(state: &AppState, headers: &HeaderMap) -> bool {
 }
 
 fn set_session_cookie(token: &str) -> String {
-    format!("hwt_session={}; Path=/; HttpOnly; SameSite=Strict", token)
+    format!("at_session={}; Path=/; HttpOnly; SameSite=Strict", token)
 }
 
 fn generate_session_token() -> String {

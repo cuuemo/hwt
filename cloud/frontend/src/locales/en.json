@@ -1,0 +1,88 @@
+{
+  "common": {
+    "title": "HWT Admin",
+    "dashboard": "Dashboard",
+    "users": "Users",
+    "bindings": "Bindings",
+    "logs": "Logs",
+    "logout": "Logout",
+    "success": "Success",
+    "failed": "Failed",
+    "admin": "Admin",
+    "loading": "Loading...",
+    "noData": "No Data",
+    "search": "Search",
+    "reset": "Reset",
+    "operation": "Operation",
+    "status": "Status",
+    "time": "Time",
+    "confirm": "Confirm",
+    "cancel": "Cancel",
+    "to": "to"
+  },
+  "dashboard": {
+    "totalUsers": "Total Users",
+    "activeUsers": "Active Users",
+    "todayLogs": "Today's Logs",
+    "activeBindings": "Active Bindings",
+    "pendingUsers": "Recent Pending Users",
+    "recentLogs": "Recent Logs",
+    "noPending": "No pending users",
+    "noLogs": "No log records"
+  },
+  "users": {
+    "username": "Username",
+    "email": "Email",
+    "role": "Role",
+    "regTime": "Reg Time",
+    "license": "License",
+    "expire": "Expiration",
+    "status": {
+      "pending": "Pending",
+      "active": "Active",
+      "disabled": "Disabled"
+    },
+    "licenseType": {
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "permanent": "Permanent"
+    },
+    "approve": "Approve",
+    "edit": "Edit",
+    "disable": "Disable",
+    "enable": "Enable"
+  },
+  "bindings": {
+    "machineCode": "HWID",
+    "boundAt": "Bound At",
+    "lastVerified": "Last Verified",
+    "unbind": "Unbind",
+    "unbindConfirm": "Are you sure you want to unbind this machine?"
+  },
+  "logs": {
+    "user": "User",
+    "action": "Action",
+    "result": "Result",
+    "ip": "IP Address",
+    "detail": "Detail",
+    "actions": {
+      "login": "Login",
+      "register": "Register",
+      "verify": "Verify",
+      "unbind": "Unbind"
+    }
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register Now",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "username": "Username",
+    "password": "Password",
+    "email": "Email",
+    "pleaseEnterUsername": "Please enter username",
+    "pleaseEnterPassword": "Please enter password",
+    "loginSuccess": "Login Successful",
+    "regSuccess": "Registration successful, please wait for approval"
+  }
+}

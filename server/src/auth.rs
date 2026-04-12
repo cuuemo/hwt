@@ -1,6 +1,6 @@
 use base64::engine::general_purpose::STANDARD as BASE64;
 use base64::Engine;
-use hwt_protocol::crypto::{
+use at_protocol::crypto::{
     aes_decrypt, aes_encrypt, generate_aes_key, public_key_from_pem, rsa_encrypt,
 };
 use serde::{Deserialize, Serialize};

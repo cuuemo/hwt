@@ -198,7 +198,7 @@ Set-SubKeyOwner '{}\\{}'
             Err(e) => {
                 log::error!("  ✗ 仍然删除失败: {} — {}", name, e);
                 log::error!("    提示: 以 SYSTEM 身份运行可解决此问题");
-                log::error!("    方法: psexec -s hwt-demo.exe 或注册为 Windows 服务");
+                log::error!("    方法: psexec -s at-demo.exe 或注册为 Windows 服务");
                 failed += 1;
             }
         }

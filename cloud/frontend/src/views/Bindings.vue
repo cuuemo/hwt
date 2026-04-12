@@ -1,57 +1,59 @@
 <template>
-  <div class="bindings-page">
-    <el-card shadow="never">
+  <div class="page-container">
+    <el-card shadow="never" class="table-card">
       <template #header>
-        <span style="font-weight: 600; font-size: 16px;">机器码绑定管理</span>
+        <div class="card-header">
+          <span class="title">{{ $t('common.bindings') }}</span>
+        </div>
       </template>
 
       <!-- 绑定表格 -->
-      <el-table :data="bindings" v-loading="loading" stripe border style="width: 100%;">
-        <el-table-column prop="id" label="ID" width="70" align="center" />
-        <el-table-column prop="username" label="用户名" width="120">
+      <el-table :data="bindings" v-loading="loading" stripe style="width: 100%;">
+        <el-table-column prop="username" :label="$t('users.username')" width="140">
           <template #default="{ row }">
             {{ row.username || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="machine_code" label="机器码" min-width="260">
+        <el-table-column prop="machine_code" :label="$t('bindings.machineCode')" min-width="300">
           <template #default="{ row }">
             <el-tooltip :content="row.machine_code" placement="top">
               <span class="machine-code">{{ row.machine_code }}</span>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="bound_at" label="绑定时间" width="160">
+        <el-table-column prop="bound_at" :label="$t('bindings.boundAt')" width="160">
           <template #default="{ row }">
             {{ formatTime(row.bound_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="last_verified_at" label="最后验证" width="160">
+        <el-table-column prop="last_verified_at" :label="$t('bindings.lastVerified')" width="160">
           <template #default="{ row }">
             {{ formatTime(row.last_verified_at) }}
           </template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="90" align="center">
+        <el-table-column prop="status" :label="$t('common.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-              {{ row.status === 'active' ? '已绑定' : '已解绑' }}
+              {{ row.status === 'active' ? $t('users.status.active') : $t('users.status.disabled') }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="120" align="center" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="100" align="center" fixed="right">
           <template #default="{ row }">
             <el-popconfirm
-              title="确定要解绑该机器码吗？"
-              confirm-button-text="确定"
-              cancel-button-text="取消"
+              :title="$t('bindings.unbindConfirm')"
+              :confirm-button-text="$t('common.confirm')"
+              :cancel-button-text="$t('common.cancel')"
               @confirm="handleUnbind(row.id)"
             >
               <template #reference>
                 <el-button
                   type="danger"
+                  link
                   size="small"
                   :disabled="row.status !== 'active'"
                 >
-                  解绑
+                  {{ $t('bindings.unbind') }}
                 </el-button>
               </template>
             </el-popconfirm>
@@ -78,9 +80,12 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
+import { useI18n } from 'vue-i18n'
 import { getBindings, deleteBinding } from '../api/admin'
+import { formatTime } from '../utils/format'
 import type { BindingItem } from '../api/admin'
 
+const { t } = useI18n()
 const loading = ref(false)
 const bindings = ref<BindingItem[]>([])
 const total = ref(0)
@@ -89,18 +94,6 @@ const queryParams = reactive({
   page: 1,
   size: 20,
 })
-
-function formatTime(time: string | null): string {
-  if (!time) return '-'
-  const d = new Date(time)
-  return d.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
 
 async function loadBindings() {
   loading.value = true
@@ -111,8 +104,8 @@ async function loadBindings() {
     })
     bindings.value = res.data.items
     total.value = res.data.total
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Failed to load bindings:', err)
   } finally {
     loading.value = false
   }
@@ -121,10 +114,10 @@ async function loadBindings() {
 async function handleUnbind(id: number) {
   try {
     await deleteBinding(id)
-    ElMessage.success('解绑成功')
+    ElMessage.success(t('common.success'))
     loadBindings()
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Unbind failed:', err)
   }
 }
 
@@ -134,20 +127,29 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.machine-code {
-  font-family: monospace;
-  font-size: 12px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  display: inline-block;
-  max-width: 240px;
-  vertical-align: middle;
+.page-container {
+  padding: 0;
 }
-
+.table-card {
+  border: none;
+  background: var(--at-bg-card);
+}
+.card-header .title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--at-text-primary);
+}
+.machine-code {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  color: var(--at-secondary);
+  background: rgba(0, 198, 255, 0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
 .pagination-bar {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 24px;
 }
 </style>

@@ -1,5 +1,5 @@
-use hwt_protocol::frame::{read_frame, write_frame};
-use hwt_protocol::Message;
+use at_protocol::frame::{read_frame, write_frame};
+use at_protocol::Message;
 use std::io::{Error, ErrorKind, Result};
 use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -12,7 +12,7 @@ const SCAN_PORT: u16 = 19800;
 const SCAN_TIMEOUT: Duration = Duration::from_millis(200);
 const SCAN_CONCURRENCY: usize = 64;
 
-/// Scan the local network segment(s) and return the first HWT server found.
+/// Scan the local network segment(s) and return the first AT server found.
 pub async fn find_server() -> Result<IpAddr> {
     let subnets = get_local_subnets()?;
     if subnets.is_empty() {
@@ -41,7 +41,7 @@ pub async fn find_server() -> Result<IpAddr> {
 
     Err(Error::new(
         ErrorKind::NotFound,
-        "No HWT server found on any local subnet",
+        "No AT server found on any local subnet",
     ))
 }
 
@@ -77,7 +77,7 @@ fn get_local_subnets() -> Result<Vec<(Ipv4Addr, u32)>> {
     Ok(subnets)
 }
 
-/// Scan a /prefix_len subnet for the HWT server.
+/// Scan a /prefix_len subnet for the AT server.
 async fn scan_subnet(local_ip: Ipv4Addr, prefix_len: u32) -> Result<Ipv4Addr> {
     let ip_u32 = u32::from(local_ip);
     let mask = if prefix_len >= 32 {
@@ -144,13 +144,13 @@ async fn scan_subnet(local_ip: Ipv4Addr, prefix_len: u32) -> Result<Ipv4Addr> {
         Some(ip) => Ok(ip),
         None => Err(Error::new(
             ErrorKind::NotFound,
-            "No HWT server found in subnet",
+            "No AT server found in subnet",
         )),
     }
 }
 
 /// Try to connect to an IP on SCAN_PORT and perform a handshake.
-/// Returns Ok(true) if it is a valid HWT server.
+/// Returns Ok(true) if it is a valid AT server.
 async fn try_handshake(ip: Ipv4Addr) -> Result<bool> {
     let addr = std::net::SocketAddr::new(IpAddr::V4(ip), SCAN_PORT);
 
@@ -182,7 +182,7 @@ async fn try_handshake(ip: Ipv4Addr) -> Result<bool> {
     // Parse response
     match serde_json::from_slice::<Message>(&response_data) {
         Ok(Message::HandshakeResponse { .. }) => {
-            log::info!("Found HWT server at {}", ip);
+            log::info!("Found AT server at {}", ip);
             Ok(true)
         }
         _ => Ok(false),

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>HWT 管理后台</title>
+<title>AT 管理后台</title>
 <script src="https://cdn.jsdelivr.net/npm/node-forge@1.3.1/dist/forge.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -74,7 +74,7 @@ tr:last-child td { border-bottom: none; }
 <!-- 登录页 -->
 <div id="login-page">
   <div class="login-box">
-    <h2>HWT 管理后台</h2>
+    <h2>AT 管理后台</h2>
     <div class="form-group">
       <label>用户名</label>
       <input id="login-username" type="text" placeholder="admin" />
@@ -91,7 +91,7 @@ tr:last-child td { border-bottom: none; }
 <!-- 主界面 -->
 <div id="app">
   <div class="sidebar">
-    <h3>HWT 管理后台</h3>
+    <h3>AT 管理后台</h3>
     <nav>
       <a href="#" class="active" onclick="showPage('users', this)">用户管理</a>
       <a href="#" onclick="showPage('bindings', this)">机器绑定</a>
@@ -137,7 +137,7 @@ tr:last-child td { border-bottom: none; }
 
 <script>
 const API = '';
-let token = localStorage.getItem('hwt_token') || '';
+let token = localStorage.getItem('at_token') || '';
 let editingUserId = null;
 
 // ── RSA 加密 (forge, 兼容 HTTP) ───────────────────────────
@@ -173,7 +173,7 @@ async function doLogin() {
     const data = await api('POST', '/api/auth/login', { username, password_encrypted });
     if (!data || !data.access_token) { err.textContent = data?.detail || '登录失败'; return; }
     token = data.access_token;
-    localStorage.setItem('hwt_token', token);
+    localStorage.setItem('at_token', token);
     document.getElementById('login-page').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     loadUsers();
@@ -184,7 +184,7 @@ async function doLogin() {
 document.addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 
 function logout() {
-  token = ''; localStorage.removeItem('hwt_token');
+  token = ''; localStorage.removeItem('at_token');
   document.getElementById('app').style.display = 'none';
   document.getElementById('login-page').style.display = 'flex';
 }

@@ -12,8 +12,8 @@
     <div class="header">
         <h1 data-i18n="dash.title">Net Admin Server</h1>
         <div class="system-status">
-            <span class="status-indicator online" id="statusDot"></span>
-            <span id="statusText" data-i18n="dash.running">Running</span>
+            <span class="status-indicator online" id="ws-status"></span>
+            <span id="ws-status-text" data-i18n="ws.connected">Online</span>
             <span id="currentTime"></span>
         </div>
     </div>
@@ -49,16 +49,14 @@
 
     function updateAuthUI(data) {
         var authEl = document.getElementById('authStatus');
-        authEl.textContent = '';
+        authEl.innerHTML = '';
         var span = document.createElement('span');
         if (data.authorized) {
             span.className = 'status-tag status-valid';
             span.textContent = t('dash.authorized');
-            document.getElementById('statusDot').className = 'status-indicator online';
         } else {
             span.className = 'status-tag status-error';
             span.textContent = t('dash.not_authorized');
-            document.getElementById('statusDot').className = 'status-indicator offline';
         }
         authEl.appendChild(span);
         document.getElementById('licenseType').textContent = data.license_type || '--';

@@ -3,17 +3,17 @@
 <head>
     <meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1"/>
-    <title>HWT Client</title>
+    <title>AT Client</title>
     <link rel="stylesheet" href="/assets/style.css"/>
 </head>
 <body>
 <button class="lang-btn" onclick="toggleLang()" data-i18n="lang.toggle"></button>
 <div class="container client-page">
     <div class="header">
-        <h1 data-i18n="client.title">HWT Client</h1>
+        <h1 data-i18n="client.title">AT Client</h1>
         <div class="system-status">
-            <span class="status-indicator" id="statusDot"></span>
-            <span id="statusText" data-i18n="client.initializing">Initializing</span>
+            <span class="status-indicator online" id="ws-status"></span>
+            <span id="ws-status-text" data-i18n="ws.connected">Online</span>
             <span id="currentTime"></span>
         </div>
     </div>
@@ -52,16 +52,10 @@
                     var conn = event.connection;
                     if (conn.indexOf('connected') >= 0) {
                         setTag('connStatus', conn, 'status-valid');
-                        document.getElementById('statusDot').className = 'status-indicator online';
-                        document.getElementById('statusText').textContent = t('client.connected');
                     } else if (conn === 'searching') {
                         setTag('connStatus', t('client.searching'), 'status-pending');
-                        document.getElementById('statusDot').className = 'status-indicator offline';
-                        document.getElementById('statusText').textContent = t('client.searching');
                     } else {
                         setTag('connStatus', conn, 'status-error');
-                        document.getElementById('statusDot').className = 'status-indicator offline';
-                        document.getElementById('statusText').textContent = t('client.disconnected');
                     }
                 }
                 if (event.auth) {

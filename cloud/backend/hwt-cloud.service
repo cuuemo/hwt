@@ -1,11 +1,11 @@
 [Unit]
-Description=HWT 网维系统云端服务
+Description=AT 网维系统云端服务
 After=network.target
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/root/hwt/cloud/backend
+WorkingDirectory=/root/at/cloud/backend
 ExecStart=uvicorn app.main:app --host 0.0.0.0 --port 10000 --workers 2
 Restart=always
 RestartSec=5

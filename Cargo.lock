@@ -112,6 +112,66 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f202df86484c868dbad7eaa557ef785d5c66295e41b460ef922eca0723b842c"
 
 [[package]]
+name = "at-client"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "at-protocol",
+ "axum",
+ "base64",
+ "chrono",
+ "env_logger",
+ "gethostname",
+ "if-addrs",
+ "log",
+ "obfstr",
+ "rand 0.8.5",
+ "rsa",
+ "serde",
+ "serde_json",
+ "tokio",
+ "windows",
+ "windows-service",
+ "winreg",
+ "winres",
+]
+
+[[package]]
+name = "at-protocol"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "base64",
+ "rand 0.8.5",
+ "rsa",
+ "serde",
+ "serde_json",
+ "tokio",
+]
+
+[[package]]
+name = "at-server"
+version = "0.1.0"
+dependencies = [
+ "aes-gcm",
+ "at-protocol",
+ "axum",
+ "base64",
+ "chrono",
+ "log",
+ "obfstr",
+ "rand 0.8.5",
+ "reqwest",
+ "rsa",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tokio",
+ "tower-http",
+ "wmi",
+]
+
+[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -653,66 +713,6 @@ name = "httpdate"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df3b46402a9d5adb4c86a0cf463f42e19994e3ee891101b1841f30a545cb49a9"
-
-[[package]]
-name = "hwt-client"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "axum",
- "base64",
- "chrono",
- "env_logger",
- "gethostname",
- "hwt-protocol",
- "if-addrs",
- "log",
- "obfstr",
- "rand 0.8.5",
- "rsa",
- "serde",
- "serde_json",
- "tokio",
- "windows",
- "windows-service",
- "winreg",
- "winres",
-]
-
-[[package]]
-name = "hwt-protocol"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "base64",
- "rand 0.8.5",
- "rsa",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
-name = "hwt-server"
-version = "0.1.0"
-dependencies = [
- "aes-gcm",
- "axum",
- "base64",
- "chrono",
- "hwt-protocol",
- "log",
- "obfstr",
- "rand 0.8.5",
- "reqwest",
- "rsa",
- "serde",
- "serde_json",
- "sha2",
- "tokio",
- "tower-http",
- "wmi",
-]
 
 [[package]]
 name = "hyper"

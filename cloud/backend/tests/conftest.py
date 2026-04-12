@@ -1,5 +1,5 @@
 """
-Shared fixtures and helpers for the HWT cloud backend test suite.
+Shared fixtures and helpers for the AT cloud backend test suite.
 """
 import os
 import json

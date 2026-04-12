@@ -2,8 +2,19 @@
 /target/
 /dist/
 
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
 # Large files
 *.zip
+
+# Database
+*.db
+*.sqlite3
 
 # OS files
 .DS_Store
@@ -14,3 +25,5 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+.env
+.env.local

@@ -1,4 +1,4 @@
-// Windows Service management for HwtCleanupService.
+// Windows Service management for AtCleanupService.
 // All Windows-specific code is behind #[cfg(windows)].
 
 // ============================================================
@@ -6,8 +6,8 @@
 // ============================================================
 #[cfg(windows)]
 mod win {
-    const SERVICE_NAME: &str = "HwtCleanupService";
-    const SERVICE_DISPLAY_NAME: &str = "HWT Device Cleanup Service";
+    const SERVICE_NAME: &str = "AtCleanupService";
+    const SERVICE_DISPLAY_NAME: &str = "AT Device Cleanup Service";
     use std::ffi::OsString;
     use std::sync::mpsc;
     use std::time::Duration;

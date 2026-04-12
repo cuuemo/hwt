@@ -1,4 +1,4 @@
-# HWT 网维系统
+# AT 网维系统
 
 网吧/机房显示器注册表清理工具，支持云端授权验证、机器绑定、自动开机清理。
 
@@ -9,12 +9,12 @@
 └── 云服务器 (Python FastAPI，端口 10000)
         ↕ HTTP
 内网
-└── 网维服务器 (hwt-server.exe，静默运行)
+└── 网维服务器 (at-server.exe，静默运行)
     │   Web UI: http://服务器IP:19880 (登录后管理)
     │   TCP :19800 RSA+AES 加密通信
-    ├── 工作站1 (hwt-client.exe，Windows Service)
+    ├── 工作站1 (at-client.exe，Windows Service)
     │       Web UI: http://工作站IP:19881 (状态查看)
-    ├── 工作站2 (hwt-client.exe，Windows Service)
+    ├── 工作站2 (at-client.exe，Windows Service)
     └── 工作站N ...
 ```
 
@@ -28,13 +28,13 @@
 
 ## 下载 EXE
 
-前往 [Releases](https://github.com/cuuemo/hwt/releases) 下载：
+前往 [Releases](https://github.com/cuuemo/at/releases) 下载：
 
 | 文件 | 用途 |
 |------|------|
-| `hwt-server-ip.exe` | 网维服务器（连接测试云端 159.195.77.25:10000）|
-| `hwt-server-domain.exe` | 网维服务器（连接正式云端 cuuemo.cn:10000）|
-| `hwt-client.exe` | 工作站客户端（两个版本通用）|
+| `at-server-ip.exe` | 网维服务器（连接测试云端 159.195.77.25:10000）|
+| `at-server-domain.exe` | 网维服务器（连接正式云端 cuuemo.cn:10000）|
+| `at-client.exe` | 工作站客户端（两个版本通用）|
 
 ---
 
@@ -92,8 +92,8 @@
 
 ```bash
 # 1. 克隆项目或上传 cloud/backend/ 目录到服务器
-git clone https://github.com/cuuemo/hwt.git
-cd hwt/cloud/backend
+git clone https://github.com/cuuemo/at.git
+cd at/cloud/backend
 
 # 2. 修改密码（必须改，否则有安全风险）
 nano docker-compose.yml
@@ -105,7 +105,7 @@ nano docker-compose.yml
 docker compose up -d
 
 # 4. 查看日志
-docker logs -f hwt-cloud
+docker logs -f at-cloud
 
 # 常用命令
 docker compose stop        # 停止
@@ -126,11 +126,11 @@ docker compose down        # 停止并删除容器（数据保留在 ./data/）
 
 #### 步骤 1 — 上传文件
 
-在宝塔文件管理器中，上传 `cloud/backend/` 整个目录到服务器，例如 `/www/hwt/`
+在宝塔文件管理器中，上传 `cloud/backend/` 整个目录到服务器，例如 `/www/at/`
 
 #### 步骤 2 — 修改配置
 
-打开 `/www/hwt/docker-compose.yml`，修改环境变量：
+打开 `/www/at/docker-compose.yml`，修改环境变量：
 
 ```yaml
 environment:
@@ -144,7 +144,7 @@ environment:
 在宝塔面板 **终端** 中执行：
 
 ```bash
-cd /www/hwt
+cd /www/at
 docker compose up -d --build
 ```
 
@@ -154,7 +154,7 @@ docker compose up -d --build
 
 | 端口 | 协议 | 说明 |
 |------|------|------|
-| 10000 | TCP | HWT 云端 API |
+| 10000 | TCP | AT 云端 API |
 
 #### 步骤 5 — （可选）配置反向代理
 
@@ -175,17 +175,17 @@ pip3 install -r requirements.txt
 bash start.sh
 
 # 或 systemd 守护进程（开机自启）
-cp hwt-cloud.service /etc/systemd/system/
-nano /etc/systemd/system/hwt-cloud.service   # 修改密码
+cp at-cloud.service /etc/systemd/system/
+nano /etc/systemd/system/at-cloud.service   # 修改密码
 systemctl daemon-reload
-systemctl enable --now hwt-cloud
+systemctl enable --now at-cloud
 ```
 
 ---
 
 ## 二、网维服务器部署（网吧主控机，Windows）
 
-1. 从 Releases 下载 `hwt-server-ip.exe`（测试）或 `hwt-server-domain.exe`（正式）
+1. 从 Releases 下载 `at-server-ip.exe`（测试）或 `at-server-domain.exe`（正式）
 2. **右键 → 以管理员身份运行**（程序静默运行，无窗口）
 3. 浏览器打开 `http://127.0.0.1:19880`，登录并管理
 4. 授权成功后自动监听局域网 TCP 19800 端口
@@ -196,19 +196,19 @@ systemctl enable --now hwt-cloud
 
 ```bat
 # 安装为系统服务（开机自启，SYSTEM 权限自动清理注册表）
-hwt-client.exe install
+at-client.exe install
 
 # 查看服务状态
-hwt-client.exe status
+at-client.exe status
 
 # 前台运行（调试用）
-hwt-client.exe run
+at-client.exe run
 
 # 卸载服务
-hwt-client.exe uninstall
+at-client.exe uninstall
 ```
 
-安装后服务名：`HwtCleanupService`
+安装后服务名：`AtCleanupService`
 
 工作流程：开机 → 扫描内网找到网维服务器 → 加密握手授权 → 清理 `HKLM\SYSTEM\CurrentControlSet\Enum\DISPLAY` 注册表 → 每 5 分钟心跳保活
 
@@ -220,7 +220,7 @@ hwt-client.exe uninstall
 
 测试通过后：
 
-1. 将 `dist/domain/hwt-server.exe` 替换到网维服务器
+1. 将 `dist/domain/at-server.exe` 替换到网维服务器
 2. 云端服务无需改动，在新服务器按上面步骤重新部署即可
 
 ---
@@ -232,8 +232,8 @@ hwt-client.exe uninstall
 bash build.sh
 
 # 产物在：
-# dist/ip/hwt-server-ip.exe   + hwt-client.exe
-# dist/domain/hwt-server-domain.exe + hwt-client.exe
+# dist/ip/at-server-ip.exe   + at-client.exe
+# dist/domain/at-server-domain.exe + at-client.exe
 ```
 
 **编译环境要求**：

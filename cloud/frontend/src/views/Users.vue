@@ -1,9 +1,9 @@
 <template>
-  <div class="users-page">
-    <el-card shadow="never">
+  <div class="page-container">
+    <el-card shadow="never" class="table-card">
       <template #header>
-        <div style="display: flex; align-items: center; justify-content: space-between;">
-          <span style="font-weight: 600; font-size: 16px;">用户管理</span>
+        <div class="card-header">
+          <span class="title">{{ $t('common.users') }}</span>
         </div>
       </template>
 
@@ -11,94 +11,93 @@
       <div class="filter-bar">
         <el-select
           v-model="queryParams.status"
-          placeholder="状态筛选"
+          :placeholder="$t('common.status')"
           clearable
-          style="width: 140px;"
+          class="filter-item"
           @change="handleSearch"
         >
-          <el-option label="待审核" value="pending" />
-          <el-option label="已激活" value="active" />
-          <el-option label="已禁用" value="disabled" />
+          <el-option :label="$t('users.status.pending')" value="pending" />
+          <el-option :label="$t('users.status.active')" value="active" />
+          <el-option :label="$t('users.status.disabled')" value="disabled" />
         </el-select>
         <el-input
           v-model="queryParams.username"
-          placeholder="搜索用户名"
+          :placeholder="$t('users.username')"
           clearable
-          style="width: 200px; margin-left: 12px;"
+          class="filter-item input-search"
           @clear="handleSearch"
           @keyup.enter="handleSearch"
         />
-        <el-button type="primary" style="margin-left: 12px;" @click="handleSearch">
-          <el-icon style="margin-right: 4px;"><Search /></el-icon>
-          搜索
+        <el-button type="primary" class="filter-item" @click="handleSearch">
+          <el-icon><Search /></el-icon>
+          <span class="hidden-xs-only">{{ $t('common.search') }}</span>
         </el-button>
       </div>
 
       <!-- 用户表格 -->
-      <el-table :data="users" v-loading="loading" stripe border style="width: 100%; margin-top: 16px;">
-        <el-table-column prop="id" label="ID" width="70" align="center" />
-        <el-table-column prop="username" label="用户名" width="120" />
-        <el-table-column prop="email" label="邮箱" min-width="160">
+      <el-table :data="users" v-loading="loading" stripe style="width: 100%; margin-top: 16px;">
+        <el-table-column prop="username" :label="$t('users.username')" min-width="120" />
+        <el-table-column prop="email" :label="$t('users.email')" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.email || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="role" label="角色" width="80" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.role === 'admin' ? 'danger' : ''" size="small">
-              {{ row.role === 'admin' ? '管理员' : '用户' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="90" align="center">
+        <el-table-column prop="status" :label="$t('common.status')" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="statusTagType(row.status)" size="small">
-              {{ statusLabel(row.status) }}
+              {{ $t(`users.status.${row.status}`) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="license_type" label="授权类型" width="100" align="center">
+        <el-table-column prop="license_type" :label="$t('users.license')" width="100" align="center">
           <template #default="{ row }">
-            {{ licenseLabel(row.license_type) }}
+            <el-tag v-if="row.license_type" type="info" size="small" effect="plain">
+              {{ $t(`users.licenseType.${row.license_type}`) }}
+            </el-tag>
+            <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="license_expire_at" label="到期时间" width="160">
+        <el-table-column prop="license_expire_at" :label="$t('users.expire')" min-width="150" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatTime(row.license_expire_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="240" align="center" fixed="right">
+        <el-table-column :label="$t('common.operation')" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.status === 'pending'"
               type="success"
+              link
               size="small"
               @click="handleApprove(row)"
             >
-              审核通过
+              {{ $t('users.approve') }}
             </el-button>
             <el-button
               v-if="row.status === 'active'"
               type="warning"
+              link
               size="small"
               @click="handleDisable(row)"
             >
-              禁用
+              {{ $t('users.disable') }}
             </el-button>
             <el-button
               v-if="row.status === 'disabled'"
               type="success"
+              link
               size="small"
               @click="handleEnable(row)"
             >
-              启用
+              {{ $t('users.enable') }}
             </el-button>
             <el-button
               type="primary"
+              link
               size="small"
               @click="openEditDialog(row)"
             >
-              编辑
+              {{ $t('users.edit') }}
             </el-button>
           </template>
         </el-table-column>
@@ -119,33 +118,32 @@
     </el-card>
 
     <!-- 编辑弹窗 -->
-    <el-dialog v-model="editDialogVisible" title="编辑用户" width="500px" destroy-on-close>
-      <el-form :model="editForm" label-width="100px">
-        <el-form-item label="用户名">
+    <el-dialog v-model="editDialogVisible" :title="$t('users.edit')" width="500px" custom-class="at-dialog">
+      <el-form :model="editForm" label-width="100px" label-position="top">
+        <el-form-item :label="$t('users.username')">
           <el-input :model-value="editForm.username" disabled />
         </el-form-item>
-        <el-form-item label="邮箱">
-          <el-input v-model="editForm.email" placeholder="邮箱地址" />
+        <el-form-item :label="$t('users.email')">
+          <el-input v-model="editForm.email" />
         </el-form-item>
-        <el-form-item label="状态">
+        <el-form-item :label="$t('common.status')">
           <el-select v-model="editForm.status" style="width: 100%;">
-            <el-option label="待审核" value="pending" />
-            <el-option label="已激活" value="active" />
-            <el-option label="已禁用" value="disabled" />
+            <el-option :label="$t('users.status.pending')" value="pending" />
+            <el-option :label="$t('users.status.active')" value="active" />
+            <el-option :label="$t('users.status.disabled')" value="disabled" />
           </el-select>
         </el-form-item>
-        <el-form-item label="授权类型">
-          <el-select v-model="editForm.license_type" clearable placeholder="请选择" style="width: 100%;">
-            <el-option label="月付" value="monthly" />
-            <el-option label="年付" value="yearly" />
-            <el-option label="永久" value="permanent" />
+        <el-form-item :label="$t('users.license')">
+          <el-select v-model="editForm.license_type" clearable style="width: 100%;">
+            <el-option :label="$t('users.licenseType.monthly')" value="monthly" />
+            <el-option :label="$t('users.licenseType.yearly')" value="yearly" />
+            <el-option :label="$t('users.licenseType.permanent')" value="permanent" />
           </el-select>
         </el-form-item>
-        <el-form-item label="到期时间">
+        <el-form-item :label="$t('users.expire')">
           <el-date-picker
             v-model="editForm.license_expire_at"
             type="datetime"
-            placeholder="选择到期时间"
             style="width: 100%;"
             format="YYYY-MM-DD HH:mm:ss"
             value-format="YYYY-MM-DDTHH:mm:ss"
@@ -153,8 +151,8 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="editDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="editLoading" @click="handleSaveEdit">保存</el-button>
+        <el-button @click="editDialogVisible = false">{{ $t('common.cancel') }}</el-button>
+        <el-button type="primary" :loading="editLoading" @click="handleSaveEdit">{{ $t('common.confirm') }}</el-button>
       </template>
     </el-dialog>
   </div>
@@ -164,9 +162,12 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
 import { getUsers, updateUser } from '../api/admin'
+import { formatTime } from '../utils/format'
 import type { UserItem } from '../api/admin'
 
+const { t } = useI18n()
 const loading = ref(false)
 const users = ref<UserItem[]>([])
 const total = ref(0)
@@ -198,37 +199,6 @@ function statusTagType(status: string): string {
   return map[status] || 'info'
 }
 
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
-    pending: '待审核',
-    active: '已激活',
-    disabled: '已禁用',
-  }
-  return map[status] || status
-}
-
-function licenseLabel(type: string | null): string {
-  if (!type) return '-'
-  const map: Record<string, string> = {
-    monthly: '月付',
-    yearly: '年付',
-    permanent: '永久',
-  }
-  return map[type] || type
-}
-
-function formatTime(time: string | null): string {
-  if (!time) return '-'
-  const d = new Date(time)
-  return d.toLocaleString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 async function loadUsers() {
   loading.value = true
   try {
@@ -242,8 +212,8 @@ async function loadUsers() {
     const res = await getUsers(params)
     users.value = res.data.items
     total.value = res.data.total
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Failed to load users:', err)
   } finally {
     loading.value = false
   }
@@ -257,30 +227,30 @@ function handleSearch() {
 async function handleApprove(row: UserItem) {
   try {
     await updateUser(row.id, { status: 'active' })
-    ElMessage.success('审核通过')
+    ElMessage.success(t('common.success'))
     loadUsers()
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Approve failed:', err)
   }
 }
 
 async function handleDisable(row: UserItem) {
   try {
     await updateUser(row.id, { status: 'disabled' })
-    ElMessage.success('已禁用')
+    ElMessage.success(t('common.success'))
     loadUsers()
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Disable failed:', err)
   }
 }
 
 async function handleEnable(row: UserItem) {
   try {
     await updateUser(row.id, { status: 'active' })
-    ElMessage.success('已启用')
+    ElMessage.success(t('common.success'))
     loadUsers()
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Enable failed:', err)
   }
 }
 
@@ -301,20 +271,14 @@ async function handleSaveEdit() {
       status: editForm.status,
       email: editForm.email || undefined,
     }
-    if (editForm.license_type) {
-      data.license_type = editForm.license_type
-    }
-    if (editForm.license_expire_at) {
-      data.license_expire_at = editForm.license_expire_at
-    } else {
-      data.license_expire_at = null
-    }
+    if (editForm.license_type) data.license_type = editForm.license_type
+    data.license_expire_at = editForm.license_expire_at || null
     await updateUser(editForm.id, data)
-    ElMessage.success('保存成功')
+    ElMessage.success(t('common.success'))
     editDialogVisible.value = false
     loadUsers()
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Save failed:', err)
   } finally {
     editLoading.value = false
   }
@@ -326,14 +290,44 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.filter-bar {
+.page-container {
+  padding: 0;
+}
+.table-card {
+  border: none;
+  background: var(--at-bg-card);
+}
+.card-header {
   display: flex;
+  justify-content: space-between;
   align-items: center;
 }
-
+.card-header .title {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--at-text-primary);
+}
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.filter-item {
+  margin: 0;
+}
+.input-search {
+  width: 240px;
+}
 .pagination-bar {
   display: flex;
   justify-content: flex-end;
-  margin-top: 16px;
+  margin-top: 24px;
+}
+
+@media (max-width: 768px) {
+  .input-search {
+    width: 100%;
+  }
 }
 </style>

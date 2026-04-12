@@ -1,0 +1,88 @@
+{
+  "common": {
+    "title": "网维管理后台",
+    "dashboard": "仪表板",
+    "users": "用户管理",
+    "bindings": "机器码绑定",
+    "logs": "验证日志",
+    "logout": "退出登录",
+    "success": "成功",
+    "failed": "失败",
+    "admin": "管理员",
+    "loading": "加载中...",
+    "noData": "暂无数据",
+    "search": "搜索",
+    "reset": "重置",
+    "operation": "操作",
+    "status": "状态",
+    "time": "时间",
+    "confirm": "确定",
+    "cancel": "取消",
+    "to": "至"
+  },
+  "dashboard": {
+    "totalUsers": "总用户数",
+    "activeUsers": "活跃用户",
+    "todayLogs": "今日验证",
+    "activeBindings": "在线绑定",
+    "pendingUsers": "最近待审核用户",
+    "recentLogs": "最近操作日志",
+    "noPending": "暂无待审核用户",
+    "noLogs": "暂无日志记录"
+  },
+  "users": {
+    "username": "用户名",
+    "email": "邮箱",
+    "role": "角色",
+    "regTime": "注册时间",
+    "license": "授权类型",
+    "expire": "到期时间",
+    "status": {
+      "pending": "待审核",
+      "active": "已激活",
+      "disabled": "已禁用"
+    },
+    "licenseType": {
+      "monthly": "月付",
+      "yearly": "年付",
+      "permanent": "永久"
+    },
+    "approve": "审核",
+    "edit": "修改",
+    "disable": "禁用",
+    "enable": "启用"
+  },
+  "bindings": {
+    "machineCode": "机器码",
+    "boundAt": "绑定时间",
+    "lastVerified": "最后验证",
+    "unbind": "解绑",
+    "unbindConfirm": "确定要解绑该机器码吗？"
+  },
+  "logs": {
+    "user": "用户",
+    "action": "操作",
+    "result": "结果",
+    "ip": "IP 地址",
+    "detail": "详情",
+    "actions": {
+      "login": "登录",
+      "register": "注册",
+      "verify": "验证",
+      "unbind": "解绑"
+    }
+  },
+  "auth": {
+    "login": "登 录",
+    "register": "立即注册",
+    "noAccount": "没有账号？",
+    "hasAccount": "已有账号？",
+    "username": "用户名",
+    "password": "密码",
+    "email": "邮箱",
+    "pleaseEnterUsername": "请输入用户名",
+    "pleaseEnterPassword": "请输入密码",
+    "loginSuccess": "登录成功",
+    "regSuccess": "注册成功，请等待审核"
+  }
+}

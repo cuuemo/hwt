@@ -1,6 +1,6 @@
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hwt.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./at.db")
 # PostgreSQL: "postgresql://user:pass@host/dbname"
 
 RSA_KEY_DIR = os.getenv("RSA_KEY_DIR", "./keys")

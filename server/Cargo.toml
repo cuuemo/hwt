@@ -1,10 +1,10 @@
 [package]
-name = "hwt-server"
+name = "at-server"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hwt-protocol = { path = "../protocol" }
+at-protocol = { path = "../protocol" }
 tokio = { version = "1", features = ["full"] }
 axum = { version = "0.8", features = ["ws"] }
 tower-http = { version = "0.6", features = ["cors"] }

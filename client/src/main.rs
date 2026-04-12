@@ -71,7 +71,7 @@ fn run_foreground() {
         // Spawn web UI server
         tokio::spawn(web::start_web_server(state.clone()));
 
-        log::info!("Starting hwt-client in foreground mode");
+        log::info!("Starting at-client in foreground mode");
 
         loop {
             match protocol::run_cleanup_cycle(state.clone()).await {

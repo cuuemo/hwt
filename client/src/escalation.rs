@@ -25,14 +25,14 @@ pub async fn on_cycle_failure(state: &Arc<ClientState>) {
         );
         open_browser(PURCHASE_URL);
         show_warning(
-            "HWT Warning",
+            "AT Warning",
             "Authorization expired!\nSystem will shut down after next check.\nPlease purchase a license.",
         );
     } else if count >= SHUTDOWN_THRESHOLD {
         broadcast_log(&state.event_tx, "error", "Shutting down system — unauthorized");
         open_browser(PURCHASE_URL);
         show_warning(
-            "HWT Shutdown",
+            "AT Shutdown",
             "Authorization expired!\nSystem is shutting down in 30 seconds.",
         );
         shutdown_system();
@@ -109,7 +109,7 @@ fn show_warning(title: &str, message: &str) {
 fn shutdown_system() {
     log::warn!("Initiating system shutdown in 30 seconds");
     let _ = std::process::Command::new("shutdown")
-        .args(["/s", "/t", "30", "/c", "HWT: Authorization expired. Shutting down."])
+        .args(["/s", "/t", "30", "/c", "AT: Authorization expired. Shutting down."])
         .spawn();
 }
 

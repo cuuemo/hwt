@@ -1,47 +1,53 @@
 <template>
   <div class="auth-bg">
+    <div class="app-bg-glow"></div>
     <div class="auth-card">
       <div class="auth-logo">
-        <span class="logo-icon">🛡</span>
-        <h1>网维管理系统</h1>
+        <el-icon :size="48" color="#2159ff"><Monitor /></el-icon>
+        <h1>{{ $t('common.title') }}</h1>
+        <p class="text-secondary">{{ $t('auth.login') }}</p>
       </div>
+      
       <el-form ref="formRef" :model="form" :rules="rules" label-width="0" @keyup.enter="handleLogin">
         <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" :prefix-icon="User" size="large" />
+          <el-input v-model="form.username" :placeholder="$t('auth.username')" :prefix-icon="User" size="large" />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" :prefix-icon="Lock" size="large" show-password />
+          <el-input v-model="form.password" type="password" :placeholder="$t('auth.password')" :prefix-icon="Lock" size="large" show-password />
         </el-form-item>
         <el-form-item>
-          <el-button type="primary" size="large" style="width:100%" :loading="loading" @click="handleLogin">
-            登 录
+          <el-button type="primary" size="large" class="w-full" :loading="loading" @click="handleLogin">
+            {{ $t('auth.login') }}
           </el-button>
         </el-form-item>
       </el-form>
+      
       <div class="auth-footer">
-        没有账号？<router-link to="/register">立即注册</router-link>
+        {{ $t('auth.noAccount') }} <router-link to="/register">{{ $t('auth.register') }}</router-link>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { ElMessage } from 'element-plus'
-import { User, Lock } from '@element-plus/icons-vue'
+import { User, Lock, Monitor } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import { login } from '../api/auth'
 
 const router = useRouter()
+const { t } = useI18n()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
 const form = reactive({ username: '', password: '' })
 
-const rules: FormRules = {
-  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-  password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
-}
+const rules = computed<FormRules>(() => ({
+  username: [{ required: true, message: t('auth.pleaseEnterUsername'), trigger: 'blur' }],
+  password: [{ required: true, message: t('auth.pleaseEnterPassword'), trigger: 'blur' }],
+}))
 
 async function handleLogin() {
   if (!formRef.value) return
@@ -52,10 +58,10 @@ async function handleLogin() {
     const result = await login(form.username, form.password)
     localStorage.setItem('token', result.access_token)
     localStorage.setItem('user', JSON.stringify(result.user))
-    ElMessage.success('登录成功')
+    ElMessage.success(t('auth.loginSuccess'))
     router.push('/dashboard')
-  } catch {
-    // handled by interceptor
+  } catch (err) {
+    console.error('Login failed:', err)
   } finally {
     loading.value = false
   }
@@ -63,61 +69,5 @@ async function handleLogin() {
 </script>
 
 <style scoped>
-.auth-bg {
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
-}
-.auth-card {
-  width: 400px;
-  padding: 48px 40px 36px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 16px;
-  backdrop-filter: blur(20px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-}
-.auth-logo {
-  text-align: center;
-  margin-bottom: 36px;
-}
-.logo-icon {
-  font-size: 40px;
-}
-.auth-logo h1 {
-  margin: 8px 0 0;
-  font-size: 22px;
-  font-weight: 600;
-  color: #e2e8f0;
-  letter-spacing: 1px;
-}
-.auth-footer {
-  text-align: center;
-  margin-top: 16px;
-  font-size: 14px;
-  color: #94a3b8;
-}
-.auth-footer a {
-  color: #60a5fa;
-  text-decoration: none;
-}
-.auth-footer a:hover {
-  text-decoration: underline;
-}
-:deep(.el-input__wrapper) {
-  background: rgba(255,255,255,0.08) !important;
-  border: 1px solid rgba(255,255,255,0.15) !important;
-  box-shadow: none !important;
-}
-:deep(.el-input__inner) {
-  color: #e2e8f0 !important;
-}
-:deep(.el-input__inner::placeholder) {
-  color: #64748b !important;
-}
-:deep(.el-input__prefix-inner .el-icon) {
-  color: #64748b;
-}
+@import "../styles/auth.css";
 </style>

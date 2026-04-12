@@ -1,0 +1,145 @@
+/* AT Modern Dark Cyber Theme for Element Plus */
+:root {
+  --at-bg-main: #0a0b14;
+  --at-bg-sidebar: #0f172a;
+  --at-bg-header: rgba(15, 23, 42, 0.8);
+  --at-bg-card: rgba(30, 41, 59, 0.7);
+  --at-primary: #2159ff;
+  --at-primary-glow: rgba(33, 89, 255, 0.4);
+  --at-secondary: #00c6ff;
+  --at-text-primary: #f1f5f9;
+  --at-text-secondary: #94a3b8;
+  --at-border: rgba(255, 255, 255, 0.1);
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--at-bg-main);
+  color: var(--at-text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  overflow-x: hidden;
+}
+
+/* Background animated glow */
+.app-bg-glow {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.app-bg-glow::before, .app-bg-glow::after {
+  content: "";
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(120px);
+  opacity: 0.15;
+}
+
+.app-bg-glow::before {
+  width: 500px;
+  height: 500px;
+  background: var(--at-primary);
+  top: -100px;
+  left: -100px;
+}
+
+.app-bg-glow::after {
+  width: 400px;
+  height: 400px;
+  background: var(--at-secondary);
+  bottom: -100px;
+  right: -100px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--at-primary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Element Plus Dark Overrides */
+.el-card {
+  --el-card-bg-color: var(--at-bg-card);
+  --el-card-border-color: var(--at-border);
+  backdrop-filter: blur(20px);
+  border-radius: 16px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.el-card:hover {
+  border-color: var(--at-primary);
+  box-shadow: 0 0 20px var(--at-primary-glow);
+  transform: translateY(-2px);
+}
+
+.el-table {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(255, 255, 255, 0.03);
+  --el-table-border-color: var(--at-border);
+}
+
+.el-menu {
+  border-right: none !important;
+}
+
+.el-aside {
+  transition: width 0.3s;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.3);
+}
+
+.el-header {
+  backdrop-filter: blur(12px);
+  z-index: 100;
+}
+
+/* Glass Buttons */
+.el-button--primary {
+  --el-button-bg-color: var(--at-primary);
+  --el-button-border-color: var(--at-primary);
+  --el-button-hover-bg-color: #3b82f6;
+  box-shadow: 0 4px 12px var(--at-primary-glow);
+}
+
+/* Auth Pages Styling */
+.auth-bg {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--at-bg-main);
+  position: relative;
+}
+
+.auth-card {
+  width: 420px;
+  padding: 48px 40px;
+  background: var(--at-bg-card);
+  border: 1px solid var(--at-border);
+  border-radius: 24px;
+  backdrop-filter: blur(40px);
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  z-index: 1;
+}
+
+/* Utility classes */
+.flex-center { display: flex; align-items: center; justify-content: center; }
+.flex-between { display: flex; align-items: center; justify-content: space-between; }
+.mt-20 { margin-top: 20px; }
+.text-secondary { color: var(--at-text-secondary); }

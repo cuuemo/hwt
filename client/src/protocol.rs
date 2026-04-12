@@ -1,7 +1,7 @@
 use crate::web::{broadcast_log, broadcast_status, CleanupInfo, ClientState};
-use hwt_protocol::crypto::{generate_aes_key, public_key_from_pem, rsa_encrypt};
-use hwt_protocol::frame::{read_encrypted, read_frame, write_encrypted, write_frame};
-use hwt_protocol::Message;
+use at_protocol::crypto::{generate_aes_key, public_key_from_pem, rsa_encrypt};
+use at_protocol::frame::{read_encrypted, read_frame, write_encrypted, write_frame};
+use at_protocol::Message;
 use std::io::{Error, ErrorKind, Result};
 use std::net::IpAddr;
 use std::sync::Arc;
@@ -52,7 +52,7 @@ async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
     broadcast_log(&state.event_tx, "info", "Scanning LAN for server...");
 
     let server_ip = scanner::find_server().await?;
-    log::info!("Found HWT server at: {}", server_ip);
+    log::info!("Found AT server at: {}", server_ip);
     *state.connection.write().await = format!("connected to {}", server_ip);
     broadcast_status(&state).await;
     broadcast_log(

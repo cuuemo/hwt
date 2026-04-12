@@ -1,0 +1,46 @@
+/* Shared styles for Login and Register pages */
+.auth-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.auth-logo h1 {
+  margin: 12px 0 4px;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--at-text-primary);
+  letter-spacing: 1px;
+}
+
+.auth-footer {
+  text-align: center;
+  margin-top: 24px;
+  font-size: 14px;
+  color: var(--at-text-secondary);
+}
+
+.auth-footer a {
+  color: var(--at-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+.w-full {
+  width: 100%;
+}
+
+:deep(.el-input__wrapper) {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid var(--at-border) !important;
+  box-shadow: none !important;
+  border-radius: 12px;
+}
+
+:deep(.el-input__inner) {
+  color: var(--at-text-primary) !important;
+  height: 48px;
+}

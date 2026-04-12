@@ -26,7 +26,7 @@ def ensure_schema():
 # 创建所有表
 ensure_schema()
 
-app = FastAPI(title="HWT 网维系统云端", version="1.0.0")
+app = FastAPI(title="AT 网维系统云端", version="1.0.0")
 
 # CORS (允许前端访问)
 app.add_middleware(
@@ -81,7 +81,7 @@ async def init_admin():
 @app.get("/")
 def root():
     """健康检查."""
-    return {"status": "ok", "service": "HWT 网维系统云端"}
+    return {"status": "ok", "service": "AT 网维系统云端"}
 
 
 @app.get("/admin")

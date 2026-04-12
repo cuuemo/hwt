@@ -48,7 +48,7 @@
 ## 二、项目目录结构
 
 ```
-hwt/
+at/
 ├── client/                     # 客户端 EXE (Rust)
 │   ├── Cargo.toml
 │   ├── build.rs                # 嵌入 Windows manifest (requireAdministrator)
@@ -130,7 +130,7 @@ hwt/
 
 ```toml
 [package]
-name = "hwt-protocol"
+name = "at-protocol"
 version = "0.1.0"
 edition = "2021"
 
@@ -304,12 +304,12 @@ pub fn aes_decrypt(key: &[u8; 32], encrypted: &[u8]) -> Result<Vec<u8>>;
 
 ```toml
 [package]
-name = "hwt-client"
+name = "at-client"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hwt-protocol = { path = "../protocol" }
+at-protocol = { path = "../protocol" }
 windows-service = "0.7"
 winreg = "0.52"
 tokio = { version = "1", features = ["full"] }
@@ -344,7 +344,7 @@ panic = "abort"
 
 ```
 用法:
-  client.exe install     注册为 Windows 服务 "HwtCleanupService" 并启动
+  client.exe install     注册为 Windows 服务 "AtCleanupService" 并启动
   client.exe uninstall   停止并删除服务
   client.exe status      查询服务状态
   client.exe run         前台运行 (调试用, 不注册服务)
@@ -368,16 +368,16 @@ fn main() {
 
 ### 4.3 service.rs — Windows Service
 
-服务名: `HwtCleanupService`
-显示名: `HWT Device Cleanup Service`
+服务名: `AtCleanupService`
+显示名: `AT Device Cleanup Service`
 
 **注册服务** (`install`):
 ```rust
 // 使用 windows-service crate
 // 1. OpenSCManager(SC_MANAGER_CREATE_SERVICE)
 // 2. CreateServiceW(
-//      service_name: "HwtCleanupService",
-//      display_name: "HWT Device Cleanup Service",
+//      service_name: "AtCleanupService",
+//      display_name: "AT Device Cleanup Service",
 //      service_type: SERVICE_WIN32_OWN_PROCESS,
 //      start_type: SERVICE_AUTO_START,      // 开机自启
 //      binary_path: 当前 exe 的绝对路径,
@@ -698,12 +698,12 @@ winres = "0.1"
 
 ```toml
 [package]
-name = "hwt-server"
+name = "at-server"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-hwt-protocol = { path = "../protocol" }
+at-protocol = { path = "../protocol" }
 eframe = "0.28"
 egui = "0.28"
 tokio = { version = "1", features = ["full"] }
@@ -1044,7 +1044,7 @@ fn main() -> Result<(), eframe::Error> {
     };
 
     eframe::run_native(
-        "hwt-server",
+        "at-server",
         options,
         Box::new(|_cc| Box::new(App::new())),
     )
@@ -1076,7 +1076,7 @@ python-multipart==0.0.*
 ```python
 import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./hwt.db")
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./at.db")
 # PostgreSQL: "postgresql://user:pass@host/dbname"
 
 RSA_KEY_DIR = os.getenv("RSA_KEY_DIR", "./keys")
@@ -1415,7 +1415,7 @@ from app.config import RSA_KEY_DIR
 # 创建表
 Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="HWT 网维系统云端", version="1.0.0")
+app = FastAPI(title="AT 网维系统云端", version="1.0.0")
 
 # CORS (允许前端访问)
 app.add_middleware(
@@ -1597,12 +1597,12 @@ members = ["protocol", "client", "server"]
 cargo build --release --target x86_64-pc-windows-gnu
 
 # 产出:
-# target/x86_64-pc-windows-gnu/release/hwt-client.exe   (~2-4 MB)
-# target/x86_64-pc-windows-gnu/release/hwt-server.exe   (~8-12 MB, 含 GUI)
+# target/x86_64-pc-windows-gnu/release/at-client.exe   (~2-4 MB)
+# target/x86_64-pc-windows-gnu/release/at-server.exe   (~8-12 MB, 含 GUI)
 
 # strip 符号 (进一步防逆向)
-x86_64-w64-mingw32-strip target/x86_64-pc-windows-gnu/release/hwt-client.exe
-x86_64-w64-mingw32-strip target/x86_64-pc-windows-gnu/release/hwt-server.exe
+x86_64-w64-mingw32-strip target/x86_64-pc-windows-gnu/release/at-client.exe
+x86_64-w64-mingw32-strip target/x86_64-pc-windows-gnu/release/at-server.exe
 ```
 
 ### 8.2 云端部署
@@ -1635,12 +1635,12 @@ STRIP = x86_64-w64-mingw32-strip
 all: client server
 
 client:
-	cargo build --release --target $(TARGET) -p hwt-client
-	$(STRIP) target/$(TARGET)/release/hwt-client.exe
+	cargo build --release --target $(TARGET) -p at-client
+	$(STRIP) target/$(TARGET)/release/at-client.exe
 
 server:
-	cargo build --release --target $(TARGET) -p hwt-server
-	$(STRIP) target/$(TARGET)/release/hwt-server.exe
+	cargo build --release --target $(TARGET) -p at-server
+	$(STRIP) target/$(TARGET)/release/at-server.exe
 
 cloud-backend:
 	cd cloud/backend && pip install -r requirements.txt
@@ -1671,16 +1671,16 @@ clean:
 ## 十、Windows 部署步骤 (给网吧使用)
 
 ### 网维服务器 (店老板操作):
-1. 将 `hwt-server.exe` 复制到网维主机
+1. 将 `at-server.exe` 复制到网维主机
 2. 双击运行, 输入账号密码登录
 3. 首次登录自动绑定机器码
 4. 看到 "已授权" + TCP 监听已启动 → 就绪
 
 ### 客户端 (所有工作站):
 1. 以管理员身份打开 cmd
-2. `hwt-client.exe install`
+2. `at-client.exe install`
 3. 服务自动启动, 后续每次开机自动运行
-4. 卸载: `hwt-client.exe uninstall`
+4. 卸载: `at-client.exe uninstall`
 
 ### 云端 (你的服务器):
 1. 部署 FastAPI + Vue
