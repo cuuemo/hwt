@@ -15,25 +15,25 @@ pub async fn on_cycle_failure(state: &Arc<ClientState>) {
     log::warn!("Consecutive unauthorized cycles: {}", count);
 
     if count == OPEN_BROWSER_THRESHOLD {
-        broadcast_log(&state.event_tx, "warn", "Authorization failed — opening purchase page");
+        broadcast_log(&state.event_tx, "warn", "授权失败 — 正在打开购买页面");
         open_browser(PURCHASE_URL);
     } else if count == WARN_SHUTDOWN_THRESHOLD {
         broadcast_log(
             &state.event_tx,
             "error",
-            "Authorization still failed — system will shut down soon!",
+            "授权仍然失败 — 系统即将关机！",
         );
         open_browser(PURCHASE_URL);
         show_warning(
-            "AT Warning",
-            "Authorization expired!\nSystem will shut down after next check.\nPlease purchase a license.",
+            "AT 警告",
+            "授权已过期！\n系统将在下次检查后关机。\n请及时购买授权。",
         );
     } else if count >= SHUTDOWN_THRESHOLD {
-        broadcast_log(&state.event_tx, "error", "Shutting down system — unauthorized");
+        broadcast_log(&state.event_tx, "error", "系统即将关机 — 未授权");
         open_browser(PURCHASE_URL);
         show_warning(
-            "AT Shutdown",
-            "Authorization expired!\nSystem is shutting down in 30 seconds.",
+            "AT 关机",
+            "授权已过期！\n系统将在 30 秒后关机。",
         );
         shutdown_system();
     }
@@ -109,7 +109,7 @@ fn show_warning(title: &str, message: &str) {
 fn shutdown_system() {
     log::warn!("Initiating system shutdown in 30 seconds");
     let _ = std::process::Command::new("shutdown")
-        .args(["/s", "/t", "30", "/c", "AT: Authorization expired. Shutting down."])
+        .args(["/s", "/t", "30", "/c", "AT：授权已过期，系统即将关机。"])
         .spawn();
 }
 

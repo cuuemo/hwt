@@ -12,7 +12,28 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 use web::{ClientEvent, ClientState};
 
+#[cfg(windows)]
+fn disable_quick_edit() {
+    use windows::Win32::System::Console::{
+        GetConsoleMode, GetStdHandle, SetConsoleMode, CONSOLE_MODE, ENABLE_EXTENDED_FLAGS,
+        ENABLE_QUICK_EDIT_MODE, STD_INPUT_HANDLE,
+    };
+    unsafe {
+        if let Ok(h) = GetStdHandle(STD_INPUT_HANDLE) {
+            let mut mode = CONSOLE_MODE(0);
+            if GetConsoleMode(h, &mut mode).is_ok() {
+                let new = CONSOLE_MODE(
+                    (mode.0 & !ENABLE_QUICK_EDIT_MODE.0) | ENABLE_EXTENDED_FLAGS.0,
+                );
+                let _ = SetConsoleMode(h, new);
+            }
+        }
+    }
+}
+
 fn main() {
+    #[cfg(windows)]
+    disable_quick_edit();
     let args: Vec<String> = std::env::args().collect();
     match args.get(1).map(|s| s.as_str()) {
         Some("install") => {
