@@ -7,10 +7,37 @@ mod scanner;
 mod service;
 mod web;
 
+use at_protocol::encrypted_log::EncryptedLogWriter;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::sync::broadcast;
 use web::{ClientEvent, ClientState};
+
+const CLOUD_PUBLIC_KEY_PEM: Option<&str> = option_env!("CLOUD_PUBLIC_KEY_PEM");
+
+fn log_file_path() -> std::path::PathBuf {
+    let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
+    let base = if cfg!(windows) {
+        std::path::PathBuf::from(r"C:\ProgramData\AT\logs")
+    } else {
+        std::env::temp_dir().join("at-logs")
+    };
+    base.join(format!("at-client-{}.log.enc", ts))
+}
+
+fn init_file_logger_if_possible() {
+    let Some(pem) = CLOUD_PUBLIC_KEY_PEM else { return };
+    let path = log_file_path();
+    match EncryptedLogWriter::create(&path, pem) {
+        Ok(w) => {
+            web::init_file_logger(w);
+            log::info!("Encrypted log file: {}", path.display());
+        }
+        Err(e) => {
+            log::error!("Failed to open encrypted log {}: {}", path.display(), e);
+        }
+    }
+}
 
 #[cfg(windows)]
 fn disable_quick_edit() {
@@ -86,6 +113,7 @@ fn run_foreground() {
     rt.block_on(async {
         let (event_tx, _) = broadcast::channel::<ClientEvent>(256);
         web::init_logger(event_tx.clone());
+        init_file_logger_if_possible();
 
         let state = Arc::new(ClientState::new(event_tx));
 

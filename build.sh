@@ -4,6 +4,14 @@ set -e
 TARGET=x86_64-pc-windows-gnu
 RELEASE=target/$TARGET/release
 
+PUBKEY_FILE="cloud/backend/keys/rsa_public.pem"
+if [ ! -f "$PUBKEY_FILE" ]; then
+    echo "ERROR: $PUBKEY_FILE not found — run cloud backend once to generate RSA keypair." >&2
+    exit 1
+fi
+export CLOUD_PUBLIC_KEY_PEM="$(cat "$PUBKEY_FILE")"
+echo "=== 嵌入云端公钥 ($PUBKEY_FILE) ==="
+
 echo "=== 编译 client (公用) ==="
 cargo build --release --target $TARGET -p at-client
 

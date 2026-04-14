@@ -9,6 +9,7 @@ use axum::routing::{get, post};
 use axum::Json;
 use axum::Router;
 use serde::{Deserialize, Serialize};
+use at_protocol::encrypted_log::EncryptedLogWriter;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock};
 use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
@@ -16,6 +17,7 @@ use tokio::sync::{broadcast, mpsc, Mutex, RwLock};
 // ─── Log bridge: captures Rust log output → broadcast channel ─────
 
 static LOG_TX: OnceLock<broadcast::Sender<ServerEvent>> = OnceLock::new();
+static FILE_LOG: OnceLock<EncryptedLogWriter> = OnceLock::new();
 
 struct WebLogger;
 
@@ -33,18 +35,22 @@ impl log::Log for WebLogger {
             log::Level::Warn => "warn",
             log::Level::Info | log::Level::Debug | log::Level::Trace => "info",
         };
-        eprintln!(
-            "[{}] {}: {}",
-            chrono::Local::now().format("%H:%M:%S"),
-            record.level(),
-            record.args()
-        );
+        let now = chrono::Local::now();
         if let Some(tx) = LOG_TX.get() {
             let _ = tx.send(ServerEvent::Log {
-                timestamp: chrono::Local::now().format("%H:%M:%S").to_string(),
+                timestamp: now.format("%H:%M:%S").to_string(),
                 level: level.to_string(),
                 message: format!("{}", record.args()),
             });
+        }
+        if let Some(writer) = FILE_LOG.get() {
+            let line = format!(
+                "[{}] {}: {}",
+                now.format("%Y-%m-%d %H:%M:%S"),
+                record.level(),
+                record.args()
+            );
+            let _ = writer.write_line(&line);
         }
     }
 
@@ -55,6 +61,10 @@ pub fn init_logger(event_tx: broadcast::Sender<ServerEvent>) {
     let _ = LOG_TX.set(event_tx);
     log::set_logger(&WebLogger).unwrap_or(());
     log::set_max_level(log::LevelFilter::Info);
+}
+
+pub fn init_file_logger(writer: EncryptedLogWriter) {
+    let _ = FILE_LOG.set(writer);
 }
 
 // ─── Embedded assets ───────────────────────────────────────────────

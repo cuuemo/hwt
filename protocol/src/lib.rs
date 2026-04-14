@@ -1,4 +1,5 @@
 pub mod crypto;
+pub mod encrypted_log;
 pub mod frame;
 
 use serde::{Deserialize, Serialize};
