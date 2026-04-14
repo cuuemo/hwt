@@ -71,6 +71,18 @@ fn main() {
             init_env_logger();
             service::uninstall();
         }
+        Some("start") => {
+            init_env_logger();
+            service::start_service();
+        }
+        Some("stop") => {
+            init_env_logger();
+            service::stop_service();
+        }
+        Some("restart") => {
+            init_env_logger();
+            service::restart_service();
+        }
         Some("status") => {
             init_env_logger();
             service::status();
