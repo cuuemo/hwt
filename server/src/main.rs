@@ -9,10 +9,13 @@ use std::sync::Arc;
 use tokio::sync::{broadcast, mpsc, Mutex};
 use web::{AppState, AuthCommand, ServerEvent};
 
-const CLOUD_PUBLIC_KEY_PEM: Option<&str> = option_env!("CLOUD_PUBLIC_KEY_PEM");
+const CLOUD_PUBLIC_KEY_PEM: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/cloud_public_key.pem"));
 
 fn init_file_logger_if_possible() {
-    let Some(pem) = CLOUD_PUBLIC_KEY_PEM else { return };
+    if CLOUD_PUBLIC_KEY_PEM.trim().is_empty() {
+        return;
+    }
     let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
     let base = if cfg!(windows) {
         std::path::PathBuf::from(r"C:\ProgramData\AT\logs")
@@ -20,7 +23,7 @@ fn init_file_logger_if_possible() {
         std::env::temp_dir().join("at-logs")
     };
     let path = base.join(format!("at-server-{}.log.enc", ts));
-    match EncryptedLogWriter::create(&path, pem) {
+    match EncryptedLogWriter::create(&path, CLOUD_PUBLIC_KEY_PEM) {
         Ok(w) => {
             web::init_file_logger(w);
             log::info!("Encrypted log file: {}", path.display());

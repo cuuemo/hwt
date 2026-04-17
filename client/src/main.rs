@@ -13,7 +13,8 @@ use std::time::Duration;
 use tokio::sync::broadcast;
 use web::{ClientEvent, ClientState};
 
-const CLOUD_PUBLIC_KEY_PEM: Option<&str> = option_env!("CLOUD_PUBLIC_KEY_PEM");
+const CLOUD_PUBLIC_KEY_PEM: &str =
+    include_str!(concat!(env!("OUT_DIR"), "/cloud_public_key.pem"));
 
 fn log_file_path() -> std::path::PathBuf {
     let ts = chrono::Local::now().format("%Y%m%d-%H%M%S");
@@ -26,9 +27,11 @@ fn log_file_path() -> std::path::PathBuf {
 }
 
 fn init_file_logger_if_possible() {
-    let Some(pem) = CLOUD_PUBLIC_KEY_PEM else { return };
+    if CLOUD_PUBLIC_KEY_PEM.trim().is_empty() {
+        return;
+    }
     let path = log_file_path();
-    match EncryptedLogWriter::create(&path, pem) {
+    match EncryptedLogWriter::create(&path, CLOUD_PUBLIC_KEY_PEM) {
         Ok(w) => {
             web::init_file_logger(w);
             log::info!("Encrypted log file: {}", path.display());
