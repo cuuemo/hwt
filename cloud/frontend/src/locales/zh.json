@@ -5,6 +5,7 @@
     "users": "用户管理",
     "bindings": "机器码绑定",
     "logs": "验证日志",
+    "clientLogs": "客户端日志",
     "logout": "退出登录",
     "success": "成功",
     "failed": "失败",
@@ -84,5 +85,18 @@
     "pleaseEnterPassword": "请输入密码",
     "loginSuccess": "登录成功",
     "regSuccess": "注册成功，请等待审核"
+  },
+  "clientLogs": {
+    "title": "客户端日志解密",
+    "upload": {
+      "hint": "将 .log.enc 文件拖到此处，或点击选择",
+      "accept": "仅支持 .log.enc 文件（最大 20 MB）"
+    },
+    "summary": {
+      "lines": "{n} 行"
+    },
+    "truncatedWarning": "已截断于 {n} 行 — 其余行未显示",
+    "searchPlaceholder": "筛选行…",
+    "download": "下载为 .txt"
   }
 }

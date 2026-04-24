@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 from sqlalchemy import func as sa_func
 
@@ -21,8 +21,13 @@ from app.schemas import (
     BindingOut,
     LogOut,
     PaginatedResponse,
+    LogDecryptResponse,
 )
 from app.auth import require_admin
+from app.log_decrypt import decrypt_log_bytes, LogDecryptError
+
+MAX_LOG_BYTES = 20 * 1024 * 1024  # 20 MB
+MAX_LOG_LINES = 50_000
 
 router = APIRouter()
 
@@ -245,3 +250,47 @@ def list_logs(
         )
 
     return PaginatedResponse(total=total, items=items)
+
+
+# ---------- 客户端日志解密 ----------
+
+@router.post("/logs/decrypt", response_model=LogDecryptResponse)
+async def decrypt_client_log(
+    file: UploadFile = File(...),
+    _admin: User = Depends(require_admin),
+):
+    """Decrypt an uploaded .log.enc file using the cloud RSA private key."""
+    from app.main import crypto
+
+    if file.size is not None and file.size > MAX_LOG_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"文件过大 (>{MAX_LOG_BYTES // (1024 * 1024)} MB)",
+        )
+    data = await file.read(MAX_LOG_BYTES + 1)
+    if len(data) > MAX_LOG_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"文件过大 (>{MAX_LOG_BYTES // (1024 * 1024)} MB)",
+        )
+
+    lines: list[str] = []
+    truncated = False
+    try:
+        for line in decrypt_log_bytes(data, crypto.private_key):
+            if len(lines) >= MAX_LOG_LINES:
+                truncated = True
+                break
+            lines.append(line)
+    except LogDecryptError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        )
+
+    return LogDecryptResponse(
+        filename=file.filename or "uploaded.log.enc",
+        total_lines=len(lines),
+        truncated=truncated,
+        lines=lines,
+    )

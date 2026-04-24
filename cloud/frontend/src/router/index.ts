@@ -40,6 +40,11 @@ const routes: RouteRecordRaw[] = [
         name: 'Logs',
         component: () => import('../views/Logs.vue'),
       },
+      {
+        path: 'client-logs',
+        name: 'ClientLogs',
+        component: () => import('../views/ClientLogs.vue'),
+      },
     ],
   },
 ]

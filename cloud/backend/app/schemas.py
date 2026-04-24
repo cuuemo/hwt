@@ -149,3 +149,10 @@ T = TypeVar("T")
 class PaginatedResponse(BaseModel, Generic[T]):
     total: int
     items: List[T]
+
+
+class LogDecryptResponse(BaseModel):
+    filename: str
+    total_lines: int
+    truncated: bool
+    lines: List[str]
