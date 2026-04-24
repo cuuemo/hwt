@@ -30,6 +30,10 @@
           <el-icon><Document /></el-icon>
           <template #title>{{ $t('common.logs') }}</template>
         </el-menu-item>
+        <el-menu-item index="/client-logs">
+          <el-icon><Files /></el-icon>
+          <template #title>{{ $t('common.clientLogs') }}</template>
+        </el-menu-item>
       </el-menu>
     </el-aside>
     
@@ -87,7 +91,7 @@
 import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
-import { Odometer, User, Link, Document, SwitchButton, Fold, Expand, Monitor, Menu } from '@element-plus/icons-vue'
+import { Odometer, User, Link, Document, Files, SwitchButton, Fold, Expand, Monitor, Menu } from '@element-plus/icons-vue'
 
 const route = useRoute()
 const router = useRouter()
