@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from tests.conftest import crypto  # CryptoManager singleton bound to test keys
+from tests.conftest import crypto, admin_login  # CryptoManager singleton bound to test keys
 from app.log_decrypt import MAGIC, VERSION, LogDecryptError, decrypt_log_bytes
 
 
@@ -73,9 +73,6 @@ def test_decrypt_log_bytes_truncated_frame_length():
 def test_decrypt_log_bytes_too_short():
     with pytest.raises(LogDecryptError, match="file too short"):
         list(decrypt_log_bytes(b"A", crypto.private_key))
-
-
-from tests.conftest import admin_login
 
 
 def test_endpoint_roundtrip(client):
