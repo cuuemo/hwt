@@ -262,7 +262,12 @@ async def decrypt_client_log(
     """Decrypt an uploaded .log.enc file using the cloud RSA private key."""
     from app.main import crypto
 
-    data = await file.read()
+    if file.size is not None and file.size > MAX_LOG_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"文件过大 (>{MAX_LOG_BYTES // (1024 * 1024)} MB)",
+        )
+    data = await file.read(MAX_LOG_BYTES + 1)
     if len(data) > MAX_LOG_BYTES:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
