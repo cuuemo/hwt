@@ -88,3 +88,21 @@ export function deleteBinding(id: number): Promise<{ data: { message: string } }
 export function getLogs(params: LogQueryParams): Promise<{ data: PaginatedResponse<LogItem> }> {
   return request.get('/api/admin/logs', { params })
 }
+
+export interface DecryptedLogResponse {
+  filename: string
+  total_lines: number
+  truncated: boolean
+  lines: string[]
+}
+
+export function decryptClientLog(
+  file: File,
+): Promise<{ data: DecryptedLogResponse }> {
+  const form = new FormData()
+  form.append('file', file)
+  return request.post('/api/admin/logs/decrypt', form, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60_000,
+  })
+}
