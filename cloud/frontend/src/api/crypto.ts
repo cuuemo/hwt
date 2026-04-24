@@ -7,6 +7,10 @@ import request from './request'
 
 let cachedPublicKey: forge.pki.rsa.PublicKey | null = null
 
+export function invalidatePublicKeyCache(): void {
+  cachedPublicKey = null
+}
+
 async function getPublicKey(): Promise<forge.pki.rsa.PublicKey> {
   if (cachedPublicKey) return cachedPublicKey
   const res = await request.get('/api/auth/public-key')

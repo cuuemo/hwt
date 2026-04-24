@@ -1,3 +1,4 @@
+import type { AxiosResponse } from 'axios'
 import request from './request'
 
 export interface PaginatedResponse<T> {
@@ -69,23 +70,32 @@ export interface LogQueryParams {
   date_to?: string
 }
 
-export function getUsers(params: UserQueryParams): Promise<{ data: PaginatedResponse<UserItem> }> {
+export function getUsers(
+  params: UserQueryParams,
+): Promise<AxiosResponse<PaginatedResponse<UserItem>>> {
   return request.get('/api/admin/users', { params })
 }
 
-export function updateUser(id: number, data: UserUpdateData): Promise<{ data: UserItem }> {
+export function updateUser(
+  id: number,
+  data: UserUpdateData,
+): Promise<AxiosResponse<UserItem>> {
   return request.patch(`/api/admin/users/${id}`, data)
 }
 
-export function getBindings(params: BindingQueryParams): Promise<{ data: PaginatedResponse<BindingItem> }> {
+export function getBindings(
+  params: BindingQueryParams,
+): Promise<AxiosResponse<PaginatedResponse<BindingItem>>> {
   return request.get('/api/admin/bindings', { params })
 }
 
-export function deleteBinding(id: number): Promise<{ data: { message: string } }> {
+export function deleteBinding(id: number): Promise<AxiosResponse<{ message: string }>> {
   return request.delete(`/api/admin/bindings/${id}`)
 }
 
-export function getLogs(params: LogQueryParams): Promise<{ data: PaginatedResponse<LogItem> }> {
+export function getLogs(
+  params: LogQueryParams,
+): Promise<AxiosResponse<PaginatedResponse<LogItem>>> {
   return request.get('/api/admin/logs', { params })
 }
 
@@ -98,7 +108,7 @@ export interface DecryptedLogResponse {
 
 export function decryptClientLog(
   file: File,
-): Promise<{ data: DecryptedLogResponse }> {
+): Promise<AxiosResponse<DecryptedLogResponse>> {
   const form = new FormData()
   form.append('file', file)
   return request.post('/api/admin/logs/decrypt', form, {

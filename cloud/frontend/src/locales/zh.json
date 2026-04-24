@@ -84,7 +84,15 @@
     "pleaseEnterUsername": "请输入用户名",
     "pleaseEnterPassword": "请输入密码",
     "loginSuccess": "登录成功",
-    "regSuccess": "注册成功，请等待审核"
+    "loginFailed": "登录失败",
+    "regSuccess": "注册成功，请等待审核",
+    "regFailed": "注册失败"
+  },
+  "error": {
+    "sessionExpired": "登录已过期，请重新登录",
+    "requestFailed": "请求失败",
+    "networkError": "网络错误，请检查网络连接",
+    "validation": "请求参数有误"
   },
   "clientLogs": {
     "title": "客户端日志解密",

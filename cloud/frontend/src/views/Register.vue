@@ -67,8 +67,11 @@ async function handleRegister() {
     await register(form.username, form.password, form.email || undefined)
     ElMessage.success(t('auth.regSuccess'))
     router.push('/login')
-  } catch (err) {
-    console.error('Registration failed:', err)
+  } catch (err: unknown) {
+    const e = err as { response?: unknown; message?: string }
+    if (!e.response) {
+      ElMessage.error(`${t('auth.regFailed')}: ${e.message || String(err)}`)
+    }
   } finally {
     loading.value = false
   }

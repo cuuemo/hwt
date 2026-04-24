@@ -84,7 +84,15 @@
     "pleaseEnterUsername": "Please enter username",
     "pleaseEnterPassword": "Please enter password",
     "loginSuccess": "Login Successful",
-    "regSuccess": "Registration successful, please wait for approval"
+    "loginFailed": "Login failed",
+    "regSuccess": "Registration successful, please wait for approval",
+    "regFailed": "Registration failed"
+  },
+  "error": {
+    "sessionExpired": "Session expired, please log in again",
+    "requestFailed": "Request failed",
+    "networkError": "Network error, check your connection",
+    "validation": "Invalid request parameters"
   },
   "clientLogs": {
     "title": "Client Logs",

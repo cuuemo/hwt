@@ -60,8 +60,14 @@ async function handleLogin() {
     localStorage.setItem('user', JSON.stringify(result.user))
     ElMessage.success(t('auth.loginSuccess'))
     router.push('/dashboard')
-  } catch (err) {
-    console.error('Login failed:', err)
+  } catch (err: unknown) {
+    // Server errors already get a toast from the response interceptor; only
+    // surface client-side failures (network, crypto.subtle missing, etc.) —
+    // otherwise the button goes back to idle with no feedback at all.
+    const e = err as { response?: unknown; message?: string }
+    if (!e.response) {
+      ElMessage.error(`${t('auth.loginFailed')}: ${e.message || String(err)}`)
+    }
   } finally {
     loading.value = false
   }
