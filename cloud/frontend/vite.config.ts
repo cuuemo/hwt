@@ -1,25 +1,15 @@
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
-import { obfuscator } from 'rollup-obfuscator'
 import path from 'path'
 
-export default defineConfig(({ mode }) => ({
-  plugins: [
-    vue(),
-    ...(mode === 'production'
-      ? [
-          obfuscator({
-            include: ['**/src/**/*.{ts,js,vue}'],
-            exclude: ['**/src/main.ts'],
-            compact: true,
-            stringArray: true,
-            stringArrayEncoding: ['base64'],
-            stringArrayThreshold: 0.6,
-            disableConsoleOutput: true,
-          }),
-        ]
-      : []),
-  ],
+// Note: rollup-obfuscator was removed — it silently dropped dynamic-import
+// chunks (Login/Users/ClientLogs/AdminLayout) from the production build
+// and mangled Vue's mount target. If obfuscation is needed again, evaluate
+// a different tool (javascript-obfuscator webpack-style, or a postbuild
+// step that runs after Rollup) rather than a rollup plugin that interferes
+// with chunk graph generation.
+export default defineConfig({
+  plugins: [vue()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -33,4 +23,4 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-}))
+})

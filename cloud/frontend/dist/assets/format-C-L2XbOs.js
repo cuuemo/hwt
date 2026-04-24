@@ -1,0 +1,1 @@
+function a(n){return{login:"",register:"warning",verify:"success",unbind:"danger"}[n]||"info"}function r(n,t=!1){if(!n)return"-";const e=new Date(n),o=localStorage.getItem("lang")||"zh",i={year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:!1};return t&&(i.second="2-digit"),e.toLocaleString(o==="zh"?"zh-CN":"en-US",i)}export{a,r as f};
