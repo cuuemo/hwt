@@ -1,4 +1,4 @@
-"""Tests for app.log_decrypt (decrypt helper unit tests)."""
+"""Tests for app.log_decrypt and /api/admin/logs/decrypt."""
 import os
 import struct
 
@@ -73,3 +73,22 @@ def test_decrypt_log_bytes_truncated_frame_length():
 def test_decrypt_log_bytes_too_short():
     with pytest.raises(LogDecryptError, match="file too short"):
         list(decrypt_log_bytes(b"A", crypto.private_key))
+
+
+from tests.conftest import admin_login
+
+
+def test_endpoint_roundtrip(client):
+    token = admin_login(client)
+    blob = _build_log_bytes(["alpha", "beta 中文"])
+    resp = client.post(
+        "/api/admin/logs/decrypt",
+        files={"file": ("demo.log.enc", blob, "application/octet-stream")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["filename"] == "demo.log.enc"
+    assert data["total_lines"] == 2
+    assert data["truncated"] is False
+    assert data["lines"] == ["alpha", "beta 中文"]
