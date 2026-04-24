@@ -60,11 +60,13 @@
 
 <script setup lang="ts">
 import { ref, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { UploadFile } from 'element-plus'
 import { ElMessage } from 'element-plus'
 import { UploadFilled, Search, Download } from '@element-plus/icons-vue'
 import { decryptClientLog, type DecryptedLogResponse } from '../api/admin'
 
+const { t } = useI18n()
 const loading = ref(false)
 const result = ref<DecryptedLogResponse | null>(null)
 const query = ref('')
@@ -111,7 +113,7 @@ function downloadTxt() {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
-  ElMessage.success('OK')
+  ElMessage.success(t('common.success'))
 }
 </script>
 
