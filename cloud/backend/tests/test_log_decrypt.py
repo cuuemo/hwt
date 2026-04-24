@@ -1,4 +1,4 @@
-"""Tests for app.log_decrypt + /api/admin/logs/decrypt."""
+"""Tests for app.log_decrypt (decrypt helper unit tests)."""
 import os
 import struct
 
@@ -7,10 +7,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from tests.conftest import crypto  # CryptoManager singleton bound to test keys
-
-
-MAGIC = b"ATLG"
-VERSION = 1
+from app.log_decrypt import MAGIC, VERSION, decrypt_log_bytes
 
 
 def _build_log_bytes(lines):
@@ -40,8 +37,6 @@ def _build_log_bytes(lines):
 
 
 def test_decrypt_log_bytes_roundtrip():
-    from app.log_decrypt import decrypt_log_bytes
-
     data = _build_log_bytes(["hello world", "second line 中文"])
     lines = list(decrypt_log_bytes(data, crypto.private_key))
     assert lines == ["hello world", "second line 中文"]

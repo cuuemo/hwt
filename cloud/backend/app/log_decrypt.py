@@ -8,6 +8,7 @@ import struct
 from typing import Iterator
 
 from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric.rsa import RSAPrivateKey
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
@@ -19,7 +20,7 @@ class LogDecryptError(ValueError):
     """Raised when a .log.enc file is malformed or cannot be decrypted."""
 
 
-def decrypt_log_bytes(data: bytes, private_key) -> Iterator[str]:
+def decrypt_log_bytes(data: bytes, private_key: RSAPrivateKey) -> Iterator[str]:
     """Yield UTF-8 decoded plaintext lines from a .log.enc blob.
 
     Raises LogDecryptError on bad magic, unsupported version, truncated input,
