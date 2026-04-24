@@ -9,15 +9,13 @@ export default defineConfig(({ mode }) => ({
     ...(mode === 'production'
       ? [
           obfuscator({
+            include: ['**/src/**/*.{ts,js,vue}'],
+            exclude: ['**/src/main.ts'],
             compact: true,
-            controlFlowFlattening: true,
-            controlFlowFlatteningThreshold: 0.75,
             stringArray: true,
             stringArrayEncoding: ['base64'],
-            stringArrayThreshold: 0.75,
+            stringArrayThreshold: 0.6,
             disableConsoleOutput: true,
-            debugProtection: true,
-            debugProtectionInterval: 2000,
           }),
         ]
       : []),
