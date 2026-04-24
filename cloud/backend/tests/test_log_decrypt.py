@@ -63,6 +63,13 @@ def test_decrypt_log_bytes_truncated_frame():
         list(decrypt_log_bytes(data, crypto.private_key))
 
 
+def test_decrypt_log_bytes_truncated_frame_length():
+    data = _build_log_bytes(["ok"])
+    data += b"\x00\x00"  # only 2 bytes remain, not enough for a 4-byte uint32
+    with pytest.raises(LogDecryptError, match="truncated frame length"):
+        list(decrypt_log_bytes(data, crypto.private_key))
+
+
 def test_decrypt_log_bytes_too_short():
     with pytest.raises(LogDecryptError, match="file too short"):
         list(decrypt_log_bytes(b"A", crypto.private_key))
