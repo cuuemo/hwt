@@ -7,7 +7,7 @@ from cryptography.hazmat.primitives.asymmetric import padding
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from tests.conftest import crypto, admin_login  # CryptoManager singleton bound to test keys
+from tests.conftest import crypto, admin_login, create_approved_user, rsa_encrypt_b64  # CryptoManager singleton bound to test keys
 from app.log_decrypt import MAGIC, VERSION, LogDecryptError, decrypt_log_bytes
 
 
@@ -89,3 +89,68 @@ def test_endpoint_roundtrip(client):
     assert data["total_lines"] == 2
     assert data["truncated"] is False
     assert data["lines"] == ["alpha", "beta 中文"]
+
+
+def _login_as(client, username, password):
+    pem = client.get("/api/auth/public-key").json()["public_key"]
+    enc_pw = rsa_encrypt_b64(pem, password.encode("utf-8"))
+    resp = client.post("/api/auth/login", json={
+        "username": username,
+        "password_encrypted": enc_pw,
+    })
+    assert resp.status_code == 200, resp.text
+    return resp.json()["access_token"]
+
+
+def test_endpoint_bad_magic_returns_400(client):
+    token = admin_login(client)
+    resp = client.post(
+        "/api/admin/logs/decrypt",
+        files={"file": ("junk.log.enc", b"XXXX" + b"\x00" * 100,
+                        "application/octet-stream")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+    assert "bad magic" in resp.json()["detail"]
+
+
+def test_endpoint_size_limit_returns_400(client):
+    token = admin_login(client)
+    big = b"A" * (20 * 1024 * 1024 + 1)
+    resp = client.post(
+        "/api/admin/logs/decrypt",
+        files={"file": ("big.log.enc", big, "application/octet-stream")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 400
+    assert "过大" in resp.json()["detail"]
+
+
+def test_endpoint_requires_admin(client):
+    create_approved_user(client, "loguser1", "logpass1")
+    token = _login_as(client, "loguser1", "logpass1")
+    blob = _build_log_bytes(["hi"])
+    resp = client.post(
+        "/api/admin/logs/decrypt",
+        files={"file": ("x.log.enc", blob, "application/octet-stream")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 403
+
+
+def test_endpoint_truncation_flag(client, monkeypatch):
+    import app.api.admin as admin_mod
+    monkeypatch.setattr(admin_mod, "MAX_LOG_LINES", 3)
+
+    token = admin_login(client)
+    blob = _build_log_bytes([f"line {i}" for i in range(10)])
+    resp = client.post(
+        "/api/admin/logs/decrypt",
+        files={"file": ("many.log.enc", blob, "application/octet-stream")},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["truncated"] is True
+    assert data["total_lines"] == 3
+    assert data["lines"] == ["line 0", "line 1", "line 2"]
