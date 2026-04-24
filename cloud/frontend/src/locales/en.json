@@ -5,6 +5,7 @@
     "users": "Users",
     "bindings": "Bindings",
     "logs": "Logs",
+    "clientLogs": "Client Logs",
     "logout": "Logout",
     "success": "Success",
     "failed": "Failed",
@@ -84,5 +85,18 @@
     "pleaseEnterPassword": "Please enter password",
     "loginSuccess": "Login Successful",
     "regSuccess": "Registration successful, please wait for approval"
+  },
+  "clientLogs": {
+    "title": "Client Logs",
+    "upload": {
+      "hint": "Drop a .log.enc file here, or click to select",
+      "accept": ".log.enc files only (max 20 MB)"
+    },
+    "summary": {
+      "lines": "{n} lines"
+    },
+    "truncatedWarning": "Truncated at {n} lines — further lines omitted",
+    "searchPlaceholder": "Filter lines…",
+    "download": "Download as .txt"
   }
 }
