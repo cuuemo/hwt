@@ -1,11 +1,17 @@
-FROM python:3.12-slim
+# syntax=docker/dockerfile:1
 
+FROM python:3.12-slim
 WORKDIR /app
 
-COPY requirements.txt .
+COPY backend/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
+COPY backend/ .
+
+# Vue SPA — built ahead of time via `cd cloud/frontend && npm run build`.
+# Operators must rebuild `frontend/dist/` before `docker compose up --build`
+# whenever frontend sources change.
+COPY frontend/dist /app/frontend_dist
 
 # RSA 密钥目录（挂载持久化）
 RUN mkdir -p keys

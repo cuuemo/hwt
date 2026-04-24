@@ -1,6 +1,8 @@
 services:
   at-cloud:
-    build: .
+    build:
+      context: ..
+      dockerfile: backend/Dockerfile
     container_name: at-cloud
     ports:
       - "10000:10000"

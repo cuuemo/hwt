@@ -1,0 +1,15 @@
+# Backend
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/*.pyo
+backend/.pytest_cache/
+backend/tests/
+backend/data/
+backend/hwt.db
+backend/*.egg-info/
+backend/.env
+
+# Frontend — dist/ is intentionally included so the Dockerfile can COPY it.
+frontend/node_modules/
+frontend/.vite/

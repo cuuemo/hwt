@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -78,19 +78,28 @@ async def init_admin():
         db.close()
 
 
-@app.get("/")
-def root():
+@app.get("/healthz")
+def healthz():
     """健康检查."""
     return {"status": "ok", "service": "AT 网维系统云端"}
 
 
-@app.get("/admin")
-def admin_ui():
-    """管理后台."""
-    return FileResponse(os.path.join(os.path.dirname(__file__), "../static/admin.html"))
+# Vue SPA (cloud/frontend) dist, copied into the image by the Dockerfile.
+_FRONTEND_DIST = os.path.abspath(
+    os.path.join(os.path.dirname(__file__), "..", "frontend_dist")
+)
+_INDEX_HTML = os.path.join(_FRONTEND_DIST, "index.html")
+_ASSETS_DIR = os.path.join(_FRONTEND_DIST, "assets")
+
+if os.path.isdir(_ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=_ASSETS_DIR), name="assets")
 
 
-# 挂载静态文件
-_static_dir = os.path.join(os.path.dirname(__file__), "../static")
-if os.path.isdir(_static_dir):
-    app.mount("/static", StaticFiles(directory=_static_dir), name="static")
+@app.get("/{full_path:path}", include_in_schema=False)
+def spa_fallback(full_path: str):
+    """Serve Vue SPA for any non-API path so client-side routing works."""
+    if full_path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    if not os.path.isfile(_INDEX_HTML):
+        raise HTTPException(status_code=503, detail="frontend not built")
+    return FileResponse(_INDEX_HTML)
