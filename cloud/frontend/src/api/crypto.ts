@@ -1,42 +1,24 @@
+import forge from 'node-forge'
 import request from './request'
 
-let cachedPublicKey: CryptoKey | null = null
+// Backend decrypts with RSA-OAEP + MGF1(SHA-256). We use node-forge so
+// encryption also works in non-secure contexts (plain HTTP on a LAN IP),
+// where window.crypto.subtle is unavailable.
 
-function pemToArrayBuffer(pem: string): ArrayBuffer {
-  const b64 = pem
-    .replace(/-----BEGIN [^-]+-----/, '')
-    .replace(/-----END [^-]+-----/, '')
-    .replace(/\s+/g, '')
-  const bin = atob(b64)
-  const buf = new Uint8Array(bin.length)
-  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i)
-  return buf.buffer
-}
+let cachedPublicKey: forge.pki.rsa.PublicKey | null = null
 
-function arrayBufferToBase64(buf: ArrayBuffer): string {
-  let s = ''
-  const bytes = new Uint8Array(buf)
-  for (let i = 0; i < bytes.length; i++) s += String.fromCharCode(bytes[i])
-  return btoa(s)
-}
-
-async function getPublicKey(): Promise<CryptoKey> {
+async function getPublicKey(): Promise<forge.pki.rsa.PublicKey> {
   if (cachedPublicKey) return cachedPublicKey
   const res = await request.get('/api/auth/public-key')
-  const pem = res.data.public_key as string
-  cachedPublicKey = await crypto.subtle.importKey(
-    'spki',
-    pemToArrayBuffer(pem),
-    { name: 'RSA-OAEP', hash: 'SHA-256' },
-    false,
-    ['encrypt'],
-  )
+  cachedPublicKey = forge.pki.publicKeyFromPem(res.data.public_key) as forge.pki.rsa.PublicKey
   return cachedPublicKey
 }
 
 export async function encryptPassword(password: string): Promise<string> {
   const key = await getPublicKey()
-  const encoded = new TextEncoder().encode(password)
-  const cipher = await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, encoded)
-  return arrayBufferToBase64(cipher)
+  const cipher = key.encrypt(forge.util.encodeUtf8(password), 'RSA-OAEP', {
+    md: forge.md.sha256.create(),
+    mgf1: { md: forge.md.sha256.create() },
+  })
+  return forge.util.encode64(cipher)
 }
