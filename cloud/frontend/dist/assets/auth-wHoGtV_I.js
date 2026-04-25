@@ -1,0 +1,1 @@
+import{e,r as n}from"./request-B1fv5rHb.js";async function i(s,a){const r=await e(a);return(await n.post("/api/auth/login",{username:s,password_encrypted:r})).data}async function c(s,a,r){const t=await e(a);return(await n.post("/api/auth/register",{username:s,password_encrypted:t,email:r||null})).data}export{i as l,c as r};

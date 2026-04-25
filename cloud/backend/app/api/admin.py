@@ -26,8 +26,8 @@ from app.schemas import (
 from app.auth import require_admin
 from app.log_decrypt import decrypt_log_bytes, LogDecryptError
 
-MAX_LOG_BYTES = 20 * 1024 * 1024  # 20 MB
-MAX_LOG_LINES = 50_000
+MAX_LOG_BYTES = 100 * 1024 * 1024  # 100 MB
+MAX_LOG_LINES = 500_000
 
 router = APIRouter()
 

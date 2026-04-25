@@ -98,7 +98,7 @@
     "title": "Client Logs",
     "upload": {
       "hint": "Drop a .log.enc file here, or click to select",
-      "accept": ".log.enc files only (max 20 MB)"
+      "accept": ".log.enc files only (max 100 MB)"
     },
     "summary": {
       "lines": "{n} lines"

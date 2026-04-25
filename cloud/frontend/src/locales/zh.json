@@ -98,7 +98,7 @@
     "title": "客户端日志解密",
     "upload": {
       "hint": "将 .log.enc 文件拖到此处，或点击选择",
-      "accept": "仅支持 .log.enc 文件（最大 20 MB）"
+      "accept": "仅支持 .log.enc 文件（最大 100 MB）"
     },
     "summary": {
       "lines": "{n} 行"
