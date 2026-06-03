@@ -26,10 +26,13 @@ cp $RELEASE/at-server.exe dist/ip/at-server.exe
 cp $RELEASE/at-server.exe dist/ip/at-server-ip.exe
 cp $RELEASE/at-client.exe dist/ip/at-client.exe
 cp $RELEASE/at-heartbeat.exe dist/ip/at-heartbeat.exe
+cp installer/install.bat dist/ip/install.bat
+cp installer/uninstall.bat dist/ip/uninstall.bat
 echo "  -> dist/ip/at-server.exe"
 echo "  -> dist/ip/at-server-ip.exe"
 echo "  -> dist/ip/at-client.exe"
 echo "  -> dist/ip/at-heartbeat.exe"
+echo "  -> dist/ip/install.bat"
 
 echo ""
 echo "=== 编译 server [域名版] — http://cuuemo.cn:10000 ==="
@@ -39,10 +42,13 @@ cp $RELEASE/at-server.exe dist/domain/at-server.exe
 cp $RELEASE/at-server.exe dist/domain/at-server-domain.exe
 cp $RELEASE/at-client.exe dist/domain/at-client.exe
 cp $RELEASE/at-heartbeat.exe dist/domain/at-heartbeat.exe
+cp installer/install.bat dist/domain/install.bat
+cp installer/uninstall.bat dist/domain/uninstall.bat
 echo "  -> dist/domain/at-server.exe"
 echo "  -> dist/domain/at-server-domain.exe"
 echo "  -> dist/domain/at-client.exe"
 echo "  -> dist/domain/at-heartbeat.exe"
+echo "  -> dist/domain/install.bat"
 
 echo ""
 echo "=== 完成 ==="
