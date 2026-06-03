@@ -11,12 +11,17 @@ use tokio::net::TcpStream;
 use crate::{cleanup, registry, scanner};
 
 const SERVER_PORT: u16 = 19800;
-const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(300);
 const MAX_RETRIES: u32 = 3;
 const RETRY_BASE_DELAY: Duration = Duration::from_secs(10);
 
-/// Run a full cleanup cycle with web UI event broadcasting.
-pub async fn run_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
+/// Run the boot cleanup cycle with web UI event broadcasting.
+///
+/// Returns the discovered server IP on success so the caller can hand it to the
+/// lightweight `at-heartbeat` process and then stop this SYSTEM service. The
+/// heartbeat loop itself NO LONGER runs here — keeping the heavy, SYSTEM-level,
+/// device-touching binary resident is what tripped anti-cheat (ACE) and crashed
+/// games, so it must exit right after the one-shot cleanup.
+pub async fn run_cleanup_cycle(state: Arc<ClientState>) -> Result<IpAddr> {
     let mut last_err = Error::new(ErrorKind::NotFound, "No server found");
     for attempt in 0..MAX_RETRIES {
         if attempt > 0 {
@@ -29,7 +34,7 @@ pub async fn run_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
             tokio::time::sleep(delay).await;
         }
         match try_cleanup_cycle(state.clone()).await {
-            Ok(()) => return Ok(()),
+            Ok(ip) => return Ok(ip),
             Err(e) => {
                 log::warn!("Attempt {} failed: {}", attempt + 1, e);
                 broadcast_log(
@@ -44,7 +49,7 @@ pub async fn run_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
     Err(last_err)
 }
 
-async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
+async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<IpAddr> {
     // Step 1: Scan
     *state.connection.write().await = "searching".to_string();
     *state.auth.write().await = "pending".to_string();
@@ -110,13 +115,18 @@ async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
         run_one_shot_cleanup(&state).await;
     }
 
-    // Step 6: Heartbeat loop
-    broadcast_log(&state.event_tx, "info", "Entering heartbeat loop");
-    *state.heartbeat.write().await = "active".to_string();
-    broadcast_status(&state).await;
-    heartbeat_loop(&mut stream, &session_key, state.clone()).await?;
-
-    Ok(())
+    // Boot path complete. Hand the discovered server IP back to the caller so
+    // it can launch the lightweight `at-heartbeat` process (which reconnects on
+    // its own) and then stop this service. The TCP stream and session key are
+    // dropped here — we deliberately do NOT keep this process resident.
+    let _ = &session_key;
+    drop(stream);
+    broadcast_log(
+        &state.event_tx,
+        "success",
+        "开机清理完成，移交心跳进程并退出服务",
+    );
+    Ok(server_ip)
 }
 
 /// Boot-time, best-effort device/registry cleanup + machine-ID randomization.
@@ -278,57 +288,6 @@ async fn request_auth(stream: &mut TcpStream, session_key: &[u8; 32]) -> Result<
             ErrorKind::InvalidData,
             format!("Expected AuthResponse, got: {:?}", other),
         )),
-    }
-}
-
-async fn heartbeat_loop(
-    stream: &mut TcpStream,
-    session_key: &[u8; 32],
-    state: Arc<ClientState>,
-) -> Result<()> {
-    loop {
-        tokio::time::sleep(HEARTBEAT_INTERVAL).await;
-
-        let hb = Message::Heartbeat;
-        if let Err(e) = write_encrypted(stream, session_key, &hb).await {
-            log::warn!("Heartbeat send failed: {}", e);
-            *state.heartbeat.write().await = format!("failed: {}", e);
-            broadcast_status(&state).await;
-            broadcast_log(
-                &state.event_tx,
-                "error",
-                &format!("Heartbeat failed: {}", e),
-            );
-            return Err(e);
-        }
-
-        match tokio::time::timeout(Duration::from_secs(30), read_encrypted(stream, session_key))
-            .await
-        {
-            Ok(Ok(Message::HeartbeatAck)) => {
-                log::debug!("Heartbeat acknowledged");
-                let now = chrono::Local::now().format("%H:%M:%S").to_string();
-                *state.heartbeat.write().await = format!("active ({})", now);
-                broadcast_status(&state).await;
-            }
-            Ok(Ok(other)) => {
-                log::warn!("Unexpected message during heartbeat: {:?}", other);
-            }
-            Ok(Err(e)) => {
-                log::warn!("Heartbeat read error: {}", e);
-                *state.heartbeat.write().await = format!("failed: {}", e);
-                broadcast_status(&state).await;
-                return Err(e);
-            }
-            Err(_) => {
-                *state.heartbeat.write().await = "timeout".to_string();
-                broadcast_status(&state).await;
-                return Err(Error::new(
-                    ErrorKind::TimedOut,
-                    "Heartbeat acknowledgment timed out",
-                ));
-            }
-        }
     }
 }
 

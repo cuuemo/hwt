@@ -73,8 +73,13 @@ fn active_session_user_token() -> Option<windows::Win32::Foundation::HANDLE> {
     }
 }
 
+/// Launch a command line in the active console (user) session, detached and
+/// windowless. A Windows service lives in Session 0; processes that must reach
+/// the logged-in user's desktop — or simply run as the user instead of SYSTEM —
+/// have to be created against the active session's user token. Returns whether
+/// the process was created.
 #[cfg(windows)]
-fn open_browser(url: &str) {
+pub fn spawn_in_active_session(command_line: &str) -> bool {
     use windows::core::{PCWSTR, PWSTR};
     use windows::Win32::Foundation::CloseHandle;
     use windows::Win32::System::Environment::{CreateEnvironmentBlock, DestroyEnvironmentBlock};
@@ -84,12 +89,11 @@ fn open_browser(url: &str) {
     };
 
     let Some(token) = active_session_user_token() else {
-        log::warn!("Cannot open browser: no user session");
-        return;
+        log::warn!("Cannot spawn in user session: no active console session");
+        return false;
     };
 
-    let cmdline = format!("cmd.exe /c start \"\" \"{}\"", url);
-    let mut cmd_w: Vec<u16> = cmdline.encode_utf16().chain(Some(0)).collect();
+    let mut cmd_w: Vec<u16> = command_line.encode_utf16().chain(Some(0)).collect();
 
     unsafe {
         let mut env_block: *mut core::ffi::c_void = std::ptr::null_mut();
@@ -118,9 +122,9 @@ fn open_browser(url: &str) {
             &mut pi,
         );
 
+        let ok = result.is_ok();
         match result {
             Ok(()) => {
-                log::info!("Opened browser in user session: {}", url);
                 let _ = CloseHandle(pi.hProcess);
                 let _ = CloseHandle(pi.hThread);
             }
@@ -131,6 +135,20 @@ fn open_browser(url: &str) {
             let _ = DestroyEnvironmentBlock(env_block);
         }
         let _ = CloseHandle(token);
+        ok
+    }
+}
+
+#[cfg(not(windows))]
+pub fn spawn_in_active_session(_command_line: &str) -> bool {
+    false
+}
+
+#[cfg(windows)]
+fn open_browser(url: &str) {
+    let cmdline = format!("cmd.exe /c start \"\" \"{}\"", url);
+    if spawn_in_active_session(&cmdline) {
+        log::info!("Opened browser in user session: {}", url);
     }
 }
 

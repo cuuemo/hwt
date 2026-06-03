@@ -248,6 +248,34 @@ mod win {
         }
     }
 
+    /// Launch the lightweight `at-heartbeat.exe` (deployed next to this service
+    /// exe) in the active user session, passing it the discovered server IP so
+    /// it can reconnect directly without re-scanning the LAN.
+    fn launch_heartbeat(server_ip: std::net::IpAddr) {
+        let path = match std::env::current_exe() {
+            Ok(p) => p.parent().map(|d| d.join("at-heartbeat.exe")),
+            Err(e) => {
+                log::error!("current_exe() failed, cannot locate heartbeat: {}", e);
+                None
+            }
+        };
+        match path {
+            Some(p) if p.exists() => {
+                let cmdline = format!("\"{}\" {}", p.display(), server_ip);
+                if crate::escalation::spawn_in_active_session(&cmdline) {
+                    log::info!("Launched heartbeat in user session: {}", p.display());
+                } else {
+                    log::error!("Failed to launch heartbeat process in user session");
+                }
+            }
+            Some(p) => log::error!(
+                "at-heartbeat.exe not found at {} — heartbeat will not run",
+                p.display()
+            ),
+            None => log::error!("Cannot resolve service exe directory — heartbeat will not run"),
+        }
+    }
+
     windows_service::define_windows_service!(ffi_service_main, service_main);
 
     /// Dispatch to the Windows Service Control Manager.
@@ -295,12 +323,22 @@ mod win {
 
             loop {
                 match crate::protocol::run_cleanup_cycle(state.clone()).await {
-                    Ok(_) => {
-                        log::info!("Cleanup cycle completed successfully");
+                    Ok(server_ip) => {
+                        log::info!("Boot cleanup completed; server at {}", server_ip);
                         crate::escalation::on_cycle_success(&state);
+                        // Hand the licensing heartbeat off to a lightweight
+                        // normal-user process, then stop THIS service. The
+                        // heavy, SYSTEM-level, device-touching process must not
+                        // stay resident while an anti-cheat game runs — that is
+                        // what crashed 三角洲.
+                        launch_heartbeat(server_ip);
+                        log::info!(
+                            "Heartbeat handed off; stopping service so it is not resident during games"
+                        );
+                        break;
                     }
                     Err(e) => {
-                        log::error!("Cleanup cycle failed: {}", e);
+                        log::error!("Boot cleanup failed: {}", e);
                         crate::escalation::on_cycle_failure(&state).await;
                     }
                 }

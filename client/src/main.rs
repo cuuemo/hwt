@@ -142,23 +142,53 @@ fn run_foreground() {
 
         loop {
             match protocol::run_cleanup_cycle(state.clone()).await {
-                Ok(_) => {
-                    log::info!("Cleanup cycle completed successfully");
+                Ok(server_ip) => {
+                    log::info!("Boot cleanup completed; server at {}", server_ip);
                     escalation::on_cycle_success(&state);
+                    // Mirror the service: hand off to the sibling heartbeat
+                    // binary and stop. In foreground we are already in the user
+                    // session, so a plain spawn is enough.
+                    spawn_heartbeat_sibling(server_ip);
+                    break;
                 }
                 Err(e) => {
-                    log::error!("Cleanup cycle failed: {}", e);
+                    log::error!("Boot cleanup failed: {}", e);
                     escalation::on_cycle_failure(&state).await;
                 }
             }
-            // Reset status for next cycle
+            // Reset status for next attempt
             *state.connection.write().await = "idle".to_string();
             *state.auth.write().await = "pending".to_string();
             *state.heartbeat.write().await = "--".to_string();
             web::broadcast_status(&state).await;
 
-            log::info!("Waiting 60 seconds before next cycle...");
+            log::info!("Waiting 60 seconds before retrying...");
             tokio::time::sleep(Duration::from_secs(60)).await;
         }
     });
+}
+
+/// Spawn the sibling `at-heartbeat` binary (next to this exe), passing the
+/// server IP. Used by foreground mode; the Windows service uses its own
+/// session-aware launcher instead.
+fn spawn_heartbeat_sibling(server_ip: std::net::IpAddr) {
+    let bin = if cfg!(windows) {
+        "at-heartbeat.exe"
+    } else {
+        "at-heartbeat"
+    };
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join(bin)));
+    match path {
+        Some(p) if p.exists() => match std::process::Command::new(&p)
+            .arg(server_ip.to_string())
+            .spawn()
+        {
+            Ok(_) => log::info!("Spawned heartbeat: {}", p.display()),
+            Err(e) => log::error!("Failed to spawn heartbeat {}: {}", p.display(), e),
+        },
+        Some(p) => log::warn!("Heartbeat binary not found at {} — skipping", p.display()),
+        None => log::warn!("Cannot resolve exe directory — skipping heartbeat"),
+    }
 }

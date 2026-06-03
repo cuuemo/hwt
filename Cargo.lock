@@ -137,6 +137,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "at-heartbeat"
+version = "0.1.0"
+dependencies = [
+ "at-protocol",
+ "base64",
+ "chrono",
+ "gethostname",
+ "if-addrs",
+ "serde_json",
+ "tokio",
+ "windows",
+]
+
+[[package]]
 name = "at-protocol"
 version = "0.1.0"
 dependencies = [

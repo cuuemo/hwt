@@ -1,4 +1,4 @@
 [workspace]
-members = ["protocol", "client", "server"]
+members = ["protocol", "client", "server", "heartbeat"]
 exclude = ["demo"]
 resolver = "2"
