@@ -77,46 +77,86 @@ fn main() {
             init_env_logger();
             service::uninstall();
         }
-        Some("start") => {
-            init_env_logger();
-            service::start_service();
-        }
-        Some("stop") => {
-            init_env_logger();
-            service::stop_service();
-        }
-        Some("restart") => {
-            init_env_logger();
-            service::restart_service();
-        }
         Some("status") => {
             init_env_logger();
             service::status();
         }
         Some("run") => run_foreground(),
-        _ => {
-            #[cfg(windows)]
-            {
-                match service::dispatch() {
-                    Ok(()) => {}
-                    Err(windows_service::Error::Winapi(err))
-                        if err.raw_os_error() == Some(1063) =>
-                    {
-                        run_foreground();
-                    }
-                    Err(e) => {
-                        init_env_logger();
-                        log::error!("Failed to start service mode: {}", e);
-                        std::process::exit(1);
-                    }
-                }
+        // `boot` is what the scheduled task invokes (as SYSTEM) on every logon:
+        // one-shot privileged cleanup, hand off the heartbeat, then exit. The
+        // bare no-arg invocation does the same thing.
+        Some("boot") => run_boot(),
+        _ => run_boot(),
+    }
+}
+
+/// One-shot boot run, invoked by the scheduled task as SYSTEM on every logon.
+/// Performs the privileged cleanup once, hands the licensing heartbeat off to a
+/// normal-user process, then exits. Never registers a service and never stays
+/// resident — so nothing AT-related is present while a game later runs.
+fn run_boot() {
+    let rt = tokio::runtime::Runtime::new().expect("failed to create tokio runtime");
+    let server_ip = rt.block_on(async {
+        let (event_tx, _) = broadcast::channel::<ClientEvent>(256);
+        web::init_logger(event_tx.clone());
+        init_file_logger_if_possible();
+        let state = Arc::new(ClientState::new(event_tx));
+
+        log::info!("at-client boot run starting");
+        match protocol::run_cleanup_cycle(state.clone()).await {
+            Ok(server_ip) => {
+                log::info!("Boot cleanup completed; server at {}", server_ip);
+                escalation::on_cycle_success(&state);
+                Some(server_ip)
             }
-            #[cfg(not(windows))]
-            {
-                run_foreground();
+            Err(e) => {
+                log::error!("Boot cleanup failed: {}", e);
+                escalation::on_cycle_failure(&state).await;
+                None
             }
         }
+    });
+
+    if let Some(ip) = server_ip {
+        launch_heartbeat_user_session(ip);
     }
+    log::info!("at-client boot run finished");
+}
+
+/// Launch the heartbeat into the active console (user) session. Because `boot`
+/// runs as SYSTEM in session 0, a plain spawn would land in the wrong session;
+/// we must create the process against the active user token. The console
+/// session may not be ready for a moment around logon, so retry briefly.
+#[cfg(windows)]
+fn launch_heartbeat_user_session(server_ip: std::net::IpAddr) {
+    let path = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("at-heartbeat.exe")));
+    let Some(path) = path else {
+        log::error!("Cannot resolve exe directory; heartbeat not launched");
+        return;
+    };
+    if !path.exists() {
+        log::error!(
+            "at-heartbeat.exe not found at {} — heartbeat not launched",
+            path.display()
+        );
+        return;
+    }
+    let cmdline = format!("\"{}\" {}", path.display(), server_ip);
+    for _ in 0..12 {
+        if escalation::spawn_in_active_session(&cmdline) {
+            log::info!("Launched heartbeat in user session: {}", path.display());
+            return;
+        }
+        std::thread::sleep(Duration::from_secs(5));
+    }
+    log::error!("Failed to launch heartbeat in user session after retries");
+}
+
+#[cfg(not(windows))]
+fn launch_heartbeat_user_session(server_ip: std::net::IpAddr) {
+    spawn_heartbeat_sibling(server_ip);
 }
 
 fn init_env_logger() {

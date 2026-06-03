@@ -23,7 +23,7 @@ if not exist "at-client.exe" (
     exit /b 1
 )
 
-echo 正在卸载 AT 服务...
+echo 正在卸载 AT 启动任务...
 echo.
 at-client.exe uninstall
 echo.
