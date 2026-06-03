@@ -28,6 +28,9 @@ fn log_file_path() -> std::path::PathBuf {
 
 fn init_file_logger_if_possible() {
     if CLOUD_PUBLIC_KEY_PEM.trim().is_empty() {
+        log::warn!(
+            "Encrypted file log disabled: CLOUD_PUBLIC_KEY_PEM is empty in this build"
+        );
         return;
     }
     let path = log_file_path();

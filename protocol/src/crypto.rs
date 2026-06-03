@@ -98,7 +98,7 @@ mod tests {
     #[test]
     fn test_rsa_roundtrip() {
         let (priv_key, pub_key) = generate_rsa_keypair();
-        let plaintext = b"Hello, HWT protocol!";
+        let plaintext = b"Hello, AT protocol!";
         let ct = rsa_encrypt(&pub_key, plaintext).unwrap();
         let pt = rsa_decrypt(&priv_key, &ct).unwrap();
         assert_eq!(pt, plaintext);
@@ -119,7 +119,7 @@ mod tests {
     #[test]
     fn test_aes_roundtrip() {
         let key = generate_aes_key();
-        let plaintext = b"AES-256-GCM test for HWT network protocol";
+        let plaintext = b"AES-256-GCM test for AT network protocol";
         let encrypted = aes_encrypt(&key, plaintext).unwrap();
         assert!(encrypted.len() >= 12 + 16); // IV + tag minimum
         let decrypted = aes_decrypt(&key, &encrypted).unwrap();

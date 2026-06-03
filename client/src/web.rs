@@ -7,14 +7,38 @@ use axum::Json;
 use axum::Router;
 use serde::Serialize;
 use at_protocol::encrypted_log::EncryptedLogWriter;
-use std::sync::atomic::AtomicU32;
-use std::sync::{Arc, OnceLock};
+use std::collections::VecDeque;
+use std::sync::atomic::{AtomicBool, AtomicU32};
+use std::sync::{Arc, Mutex, OnceLock};
 use tokio::sync::{broadcast, RwLock};
 
 // ─── Log bridge: captures Rust log output → broadcast channel ─────
 
+const RECENT_LOG_CAPACITY: usize = 500;
+
 static LOG_TX: OnceLock<broadcast::Sender<ClientEvent>> = OnceLock::new();
 static FILE_LOG: OnceLock<EncryptedLogWriter> = OnceLock::new();
+static RECENT_LOGS: OnceLock<Mutex<VecDeque<ClientEvent>>> = OnceLock::new();
+
+fn recent_logs() -> &'static Mutex<VecDeque<ClientEvent>> {
+    RECENT_LOGS.get_or_init(|| Mutex::new(VecDeque::with_capacity(RECENT_LOG_CAPACITY)))
+}
+
+fn push_recent(event: ClientEvent) {
+    if let Ok(mut buf) = recent_logs().lock() {
+        if buf.len() == RECENT_LOG_CAPACITY {
+            buf.pop_front();
+        }
+        buf.push_back(event);
+    }
+}
+
+fn snapshot_recent() -> Vec<ClientEvent> {
+    recent_logs()
+        .lock()
+        .map(|b| b.iter().cloned().collect())
+        .unwrap_or_default()
+}
 
 struct WebLogger;
 
@@ -33,12 +57,14 @@ impl log::Log for WebLogger {
             log::Level::Info | log::Level::Debug | log::Level::Trace => "info",
         };
         let now = chrono::Local::now();
+        let event = ClientEvent::Log {
+            timestamp: now.format("%H:%M:%S").to_string(),
+            level: level.to_string(),
+            message: format!("{}", record.args()),
+        };
+        push_recent(event.clone());
         if let Some(tx) = LOG_TX.get() {
-            let _ = tx.send(ClientEvent::Log {
-                timestamp: now.format("%H:%M:%S").to_string(),
-                level: level.to_string(),
-                message: format!("{}", record.args()),
-            });
+            let _ = tx.send(event);
         }
         if let Some(writer) = FILE_LOG.get() {
             let line = format!(
@@ -100,6 +126,10 @@ pub struct ClientState {
     pub cleanup_info: Arc<RwLock<Option<CleanupInfo>>>,
     pub event_tx: broadcast::Sender<ClientEvent>,
     pub unauthorized_count: Arc<AtomicU32>,
+    /// One-shot guard: device/registry cleanup + machine-ID randomization run
+    /// exactly once per process lifetime (at boot), never on reconnects. This
+    /// keeps anti-cheat (e.g. ACE) from seeing HWID/device tampering mid-game.
+    pub cleanup_done: Arc<AtomicBool>,
 }
 
 #[derive(Clone, Serialize)]
@@ -119,6 +149,7 @@ impl ClientState {
             cleanup_info: Arc::new(RwLock::new(None)),
             event_tx,
             unauthorized_count: Arc::new(AtomicU32::new(0)),
+            cleanup_done: Arc::new(AtomicBool::new(false)),
         }
     }
 }
@@ -207,6 +238,16 @@ async fn handle_ws(mut socket: WebSocket, state: Arc<ClientState>) {
     let _ = socket
         .send(WsMessage::Text(serde_json::to_string(&snap).unwrap().into()))
         .await;
+
+    for ev in snapshot_recent() {
+        if socket
+            .send(WsMessage::Text(serde_json::to_string(&ev).unwrap().into()))
+            .await
+            .is_err()
+        {
+            return;
+        }
+    }
 
     let mut rx = state.event_tx.subscribe();
     loop {

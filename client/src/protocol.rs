@@ -90,18 +90,66 @@ async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
     broadcast_status(&state).await;
     broadcast_log(&state.event_tx, "success", "Authorization granted");
 
-    // Step 5: Cleanup
-    let (scanned, removed) = cleanup::cleanup_phantom_devices()?;
-    log::info!(
-        "Phantom device cleanup: scanned {}, removed {}",
-        scanned,
-        removed
-    );
-    broadcast_log(
-        &state.event_tx,
-        "info",
-        &format!("Device cleanup: scanned {}, removed {}", scanned, removed),
-    );
+    // Step 5: Cleanup — runs ONCE per process lifetime (at boot), then never
+    // again on reconnects. Device removal + display-registry cleanup + machine-ID
+    // randomization are exactly the behaviors anti-cheat engines (e.g. ACE, used
+    // by 三角洲行动) flag as HWID/device tampering; re-running them mid-session
+    // crashes the game. The connection/auth/heartbeat path below stays live every
+    // cycle regardless, so reconnects keep working without re-triggering cleanup.
+    if state
+        .cleanup_done
+        .swap(true, std::sync::atomic::Ordering::SeqCst)
+    {
+        log::info!("Cleanup already performed at boot; skipping on reconnect");
+        broadcast_log(
+            &state.event_tx,
+            "info",
+            "清理已在开机时完成，本次重连跳过（避免触发反作弊）",
+        );
+    } else {
+        run_one_shot_cleanup(&state).await;
+    }
+
+    // Step 6: Heartbeat loop
+    broadcast_log(&state.event_tx, "info", "Entering heartbeat loop");
+    *state.heartbeat.write().await = "active".to_string();
+    broadcast_status(&state).await;
+    heartbeat_loop(&mut stream, &session_key, state.clone()).await?;
+
+    Ok(())
+}
+
+/// Boot-time, best-effort device/registry cleanup + machine-ID randomization.
+///
+/// Invoked exactly once per process lifetime (guarded by `state.cleanup_done`).
+/// Failures are logged, never propagated: a failed cleanup must not abort the
+/// cycle, otherwise the outer retry loop would re-enter and re-run cleanup —
+/// defeating the whole "run once at boot" decoupling.
+async fn run_one_shot_cleanup(state: &Arc<ClientState>) {
+    let (scanned, removed) = match cleanup::cleanup_phantom_devices() {
+        Ok(pair) => {
+            log::info!(
+                "Phantom device cleanup: scanned {}, removed {}",
+                pair.0,
+                pair.1
+            );
+            broadcast_log(
+                &state.event_tx,
+                "info",
+                &format!("Device cleanup: scanned {}, removed {}", pair.0, pair.1),
+            );
+            pair
+        }
+        Err(e) => {
+            log::warn!("Phantom device cleanup failed: {}", e);
+            broadcast_log(
+                &state.event_tx,
+                "warn",
+                &format!("Device cleanup failed: {}", e),
+            );
+            (0, 0)
+        }
+    };
 
     let registry_cleaned = match registry::clean_display_registry() {
         Ok(n) if n > 0 => {
@@ -137,7 +185,6 @@ async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
         }
     };
 
-    // Update cleanup info in state
     *state.cleanup_info.write().await = Some(CleanupInfo {
         scanned: scanned as u32,
         removed: removed as u32,
@@ -150,14 +197,6 @@ async fn try_cleanup_cycle(state: Arc<ClientState>) -> Result<()> {
         registry_cleaned,
         ids_randomized,
     });
-
-    // Step 6: Heartbeat loop
-    broadcast_log(&state.event_tx, "info", "Entering heartbeat loop");
-    *state.heartbeat.write().await = "active".to_string();
-    broadcast_status(&state).await;
-    heartbeat_loop(&mut stream, &session_key, state.clone()).await?;
-
-    Ok(())
 }
 
 async fn perform_handshake(stream: &mut TcpStream) -> Result<[u8; 32]> {

@@ -54,7 +54,7 @@ def handshake(req: HandshakeRequest):
     return HandshakeResponse(session_id=session_id)
 
 
-@router.post("/", response_model=VerifyResponse)
+@router.post("", response_model=VerifyResponse)
 def verify(req: VerifyRequest, request: Request, db: Session = Depends(get_db)):
     """
     AES 加密验证接口.

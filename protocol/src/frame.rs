@@ -70,7 +70,7 @@ mod tests {
     #[tokio::test]
     async fn test_frame_roundtrip() {
         let (mut c, mut s) = tcp_pair().await;
-        let data = b"hello HWT frame";
+        let data = b"hello AT frame";
         write_frame(&mut c, data).await.unwrap();
         let received = read_frame(&mut s).await.unwrap();
         assert_eq!(received, data);
