@@ -21,6 +21,5 @@ if-addrs = "0.13"
 version = "0.58"
 features = [
     "Win32_Foundation",
-    "Win32_System_Diagnostics_ToolHelp",
     "Win32_UI_WindowsAndMessaging",
 ]

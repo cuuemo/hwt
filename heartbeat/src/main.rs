@@ -27,7 +27,6 @@ use tokio::net::TcpStream;
 const SERVER_PORT: u16 = 19800;
 const HEARTBEAT_INTERVAL: Duration = Duration::from_secs(300);
 const RECONNECT_DELAY: Duration = Duration::from_secs(30);
-const GAME_POLL_DELAY: Duration = Duration::from_secs(15);
 const ACK_TIMEOUT: Duration = Duration::from_secs(30);
 
 // Escalation thresholds — mirror client/src/escalation.rs so licensing
@@ -36,22 +35,6 @@ const PURCHASE_URL: &str = "https://m.tb.cn/h.imD9Vqp?tk=SSp054qFuub";
 const OPEN_BROWSER_THRESHOLD: u32 = 5;
 const WARN_SHUTDOWN_THRESHOLD: u32 = 8;
 const SHUTDOWN_THRESHOLD: u32 = 9;
-
-/// Process names (lower-cased) that mean "an anti-cheat-protected game is
-/// running, stay out of its way". ACE's own helper processes are the reliable
-/// signal — they are present for ANY ACE-protected title — plus a few likely
-/// Delta Force client names. Adjust this list to match real process names
-/// observed on the target machines.
-const GAME_ACE_PROCESSES: &[&str] = &[
-    "ace-tray.exe",
-    "sguard64.exe",
-    "sguardsvc64.exe",
-    "ace-base.exe",
-    "anticheatexpert.exe",
-    "deltaforceclient-win64-shipping.exe",
-    "deltaforce.exe",
-    "df.exe",
-];
 
 fn main() {
     let server_ip: IpAddr = std::env::args()
@@ -78,17 +61,11 @@ async fn run(server_ip: IpAddr) {
     let mut fail_count: u32 = 0;
 
     loop {
-        if game_running() {
-            log_line("game/anti-cheat detected — heartbeat dormant");
-            tokio::time::sleep(GAME_POLL_DELAY).await;
-            continue;
-        }
-
         match connect_and_auth(server_ip).await {
             Ok((mut stream, key, true)) => {
                 fail_count = 0;
                 log_line("authorized — entering heartbeat loop");
-                heartbeat_until_drop_or_game(&mut stream, &key).await;
+                heartbeat_loop(&mut stream, &key).await;
             }
             Ok((_, _, false)) => {
                 fail_count += 1;
@@ -119,20 +96,11 @@ async fn connect_and_auth(server_ip: IpAddr) -> Result<(TcpStream, [u8; 32], boo
     Ok((stream, session_key, authorized))
 }
 
-/// Heartbeat until the connection drops or a game launches. Connection drops
-/// are normal (network blips) and just end the loop so `run` reconnects — they
-/// are NOT treated as licensing failures.
-async fn heartbeat_until_drop_or_game(stream: &mut TcpStream, key: &[u8; 32]) {
+/// Heartbeat until the connection drops. Drops are normal (network blips) and
+/// just end the loop so `run` reconnects — they are NOT licensing failures.
+async fn heartbeat_loop(stream: &mut TcpStream, key: &[u8; 32]) {
     loop {
-        if game_running() {
-            log_line("game/anti-cheat launched — dropping heartbeat connection");
-            return;
-        }
         tokio::time::sleep(HEARTBEAT_INTERVAL).await;
-        if game_running() {
-            log_line("game/anti-cheat launched — dropping heartbeat connection");
-            return;
-        }
 
         if let Err(e) = write_encrypted(stream, key, &Message::Heartbeat).await {
             log_line(&format!("heartbeat send failed: {}", e));
@@ -313,56 +281,6 @@ fn shutdown_system() {
 #[cfg(not(windows))]
 fn shutdown_system() {
     log_line("[non-windows] would shut down system");
-}
-
-// ─── Game / anti-cheat detection ──────────────────────────────────────────
-
-#[cfg(windows)]
-fn game_running() -> bool {
-    use windows::Win32::Foundation::CloseHandle;
-    use windows::Win32::System::Diagnostics::ToolHelp::{
-        CreateToolhelp32Snapshot, Process32FirstW, Process32NextW, PROCESSENTRY32W,
-        TH32CS_SNAPPROCESS,
-    };
-
-    unsafe {
-        let snap = match CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0) {
-            Ok(h) => h,
-            Err(_) => return false,
-        };
-
-        let mut entry = PROCESSENTRY32W {
-            dwSize: std::mem::size_of::<PROCESSENTRY32W>() as u32,
-            ..Default::default()
-        };
-
-        let mut found = false;
-        if Process32FirstW(snap, &mut entry).is_ok() {
-            loop {
-                let len = entry
-                    .szExeFile
-                    .iter()
-                    .position(|&c| c == 0)
-                    .unwrap_or(entry.szExeFile.len());
-                let name = String::from_utf16_lossy(&entry.szExeFile[..len]).to_lowercase();
-                if GAME_ACE_PROCESSES.iter().any(|p| name == *p) {
-                    found = true;
-                    break;
-                }
-                if Process32NextW(snap, &mut entry).is_err() {
-                    break;
-                }
-            }
-        }
-
-        let _ = CloseHandle(snap);
-        found
-    }
-}
-
-#[cfg(not(windows))]
-fn game_running() -> bool {
-    false
 }
 
 // ─── Logging ──────────────────────────────────────────────────────────────

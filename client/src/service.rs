@@ -276,6 +276,24 @@ mod win {
         }
     }
 
+    /// Delete this service from the SCM after boot work is done. The entry is
+    /// removed once the service stops (immediately after `service_main` returns).
+    /// Mirrors what the operator was doing manually — uninstalling the service
+    /// after boot — which is what stops the anti-cheat crash.
+    fn mark_self_for_deletion() {
+        let Some(manager) = open_manager(ServiceManagerAccess::CONNECT) else {
+            log::error!("Cannot open SCM to self-uninstall service");
+            return;
+        };
+        match manager.open_service(SERVICE_NAME, ServiceAccess::DELETE) {
+            Ok(service) => match service.delete() {
+                Ok(_) => log::info!("Service '{}' marked for deletion", SERVICE_NAME),
+                Err(e) => log::error!("Failed to delete service: {}", e),
+            },
+            Err(e) => log::error!("Failed to open service for self-deletion: {}", e),
+        }
+    }
+
     windows_service::define_windows_service!(ffi_service_main, service_main);
 
     /// Dispatch to the Windows Service Control Manager.
@@ -332,8 +350,13 @@ mod win {
                         // stay resident while an anti-cheat game runs — that is
                         // what crashed 三角洲.
                         launch_heartbeat(server_ip);
+                        // Uninstall the service outright (not just stop it), so
+                        // nothing AT-related stays registered or resident while
+                        // games run. On a restore-on-reboot machine the frozen
+                        // image still has it, so it re-runs next boot.
+                        mark_self_for_deletion();
                         log::info!(
-                            "Heartbeat handed off; stopping service so it is not resident during games"
+                            "Heartbeat handed off; service uninstalling itself (resident-free during games)"
                         );
                         break;
                     }
